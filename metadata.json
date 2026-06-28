@@ -1,0 +1,6 @@
+{
+  "name": "EduFlow",
+  "description": "A platform bridging offline coaching centers and students in Bangladesh, enabling schedule management, batch tracking, material sharing, notice broadcasts, and tuition payment tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account details, role, and metadata",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier for the user" },
+        "name": { "type": "string", "description": "Full name of the user" },
+        "email": { "type": "string", "description": "Email address of the user" },
+        "role": { "type": "string", "enum": ["teacher", "student"], "description": "The user role" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "institution": { "type": "string", "description": "School, college, or university name" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Batch": {
+      "title": "Coaching Batch",
+      "description": "Coaching class batch details, schedules, and fee structures",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "subject": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "teacherName": { "type": "string" },
+        "schedule": { "type": "array" },
+        "monthlyFee": { "type": "number" },
+        "code": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "deleted": { "type": "boolean" }
+      },
+      "required": ["id", "name", "subject", "teacherId", "monthlyFee", "code"]
+    },
+    "Enrollment": {
+      "title": "Batch Enrollment",
+      "description": "Student enrollment in a batch, including billing and payment histories",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Formed as batchId_studentId" },
+        "batchId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "studentEmail": { "type": "string" },
+        "studentPhone": { "type": "string" },
+        "studentInstitution": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "pending"] },
+        "enrolledAt": { "type": "string" },
+        "paymentStatus": { "type": "object" },
+        "customFee": { "type": "number" },
+        "discount": { "type": "number" },
+        "paidAmountMap": { "type": "object" },
+        "paymentHistory": { "type": "array" },
+        "extraCharges": { "type": "object" }
+      },
+      "required": ["id", "batchId", "studentId", "status", "paymentStatus"]
+    },
+    "StudyMaterial": {
+      "title": "Study Material",
+      "description": "Notes, lecture sheets, booklets, and files posted by teachers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "batchId": { "type": "string" },
+        "batchName": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "batchId", "teacherId", "title", "fileUrl"]
+    },
+    "Notice": {
+      "title": "Batch Notice",
+      "description": "Bulletins, exam alerts, or general announcements posted by teachers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "batchId": { "type": "string" },
+        "batchName": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "teacherName": { "type": "string" },
+        "type": { "type": "string", "enum": ["general", "exam_alert", "payment_alert"] },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "batchId", "teacherId", "type", "message"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User accounts collection"
+    },
+    "batches/{batchId}": {
+      "schema": "Batch",
+      "description": "Batches created by teachers"
+    },
+    "enrollments/{enrollmentId}": {
+      "schema": "Enrollment",
+      "description": "Student enrollments under batches"
+    },
+    "materials/{materialId}": {
+      "schema": "StudyMaterial",
+      "description": "Academic study sheets and notes"
+    },
+    "notices/{noticeId}": {
+      "schema": "Notice",
+      "description": "Syllabus, test notifications and warnings"
+    }
+  }
+}

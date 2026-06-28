@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@layer utilities {
+  /* Premium Glassmorphism */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+  }
+  
+  .glass-card-dark {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* Shimmer Shine Effect */
+  .shimmer-btn {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shimmer-btn::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 30%;
+    height: 200%;
+    background: rgba(255, 255, 255, 0.24);
+    transform: rotate(30deg);
+    transition: none;
+    animation: shine-effect 4s infinite ease-in-out;
+  }
+
+  @keyframes shine-effect {
+    0% { left: -70%; }
+    15% { left: 120%; }
+    100% { left: 120%; }
+  }
+
+  /* Elegant Floating animation */
+  .animate-float {
+    animation: float-slow 6s ease-in-out infinite;
+  }
+
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+  }
+
+  /* Soft shifting gradient background */
+  .bg-grad-shifting {
+    background-size: 200% 200%;
+    animation: gradient-shift 12s ease infinite;
+  }
+
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  /* Glow effects */
+  .shadow-glow-teal {
+    box-shadow: 0 0 20px rgba(13, 148, 136, 0.15);
+  }
+
+  .shadow-glow-indigo {
+    box-shadow: 0 0 25px rgba(79, 70, 229, 0.18);
+  }
+
+  .shadow-glow-amber {
+    box-shadow: 0 0 20px rgba(217, 119, 6, 0.15);
+  }
+
+  /* Custom modern scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.5);
+  }
+}
+
+/* Base custom styles to pair typography */
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #f8fafc;
+}

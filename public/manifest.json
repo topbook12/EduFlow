@@ -1,0 +1,18 @@
+{
+  "name": "EduFlow",
+  "short_name": "EduFlow",
+  "description": "এডুফ্লো - উন্নত ও নির্ভরযোগ্য কোচিং ম্যানেজমেন্ট সিস্টেম",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f865f",
+  "theme_color": "#0f865f",
+  "icons": [
+    {
+      "src": "/pwa-icon.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

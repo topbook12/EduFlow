@@ -110,130 +110,102 @@ export const PWAInstallPrompt: React.FC = () => {
 
   return (
     <AnimatePresence>
-      <div className="fixed bottom-18 md:bottom-6 left-0 right-0 z-[100] px-4 mx-auto max-w-md">
-        <motion.div
-          initial={{ opacity: 0, y: 50, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 30, scale: 0.95 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="bg-slate-900/95 backdrop-blur-xl border border-teal-500/30 text-white rounded-2xl shadow-2xl p-4.5 flex flex-col gap-3.5 relative overflow-hidden"
-        >
-          {/* Subtle glowing PWA design accent */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
-
-          {/* Close button */}
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+        className="w-full mb-6"
+      >
+        <div className="bg-teal-600 rounded-xl shadow-sm px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative">
+          
+          {/* Close button for mobile (absolute top right) */}
           <button
             type="button"
             onClick={handleDismiss}
-            className="absolute top-3 right-3 p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer z-10"
+            className="absolute sm:hidden top-3 right-3 text-teal-100 hover:text-white transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
 
           {!showManualGuide ? (
             <>
               {/* Content info */}
-              <div className="flex items-start gap-3.5 pr-6">
-                <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center shrink-0">
-                  <img 
-                    src="/pwa-icon.jpg" 
-                    alt="EduFlow" 
-                    className="w-10 h-10 rounded-lg object-cover" 
-                    referrerPolicy="no-referrer"
-                  />
+              <div className="flex items-center gap-3 pr-8 sm:pr-0">
+                <div className="w-10 h-10 rounded-lg bg-teal-700/50 flex items-center justify-center shrink-0">
+                  <Smartphone className="w-5 h-5 text-white" />
                 </div>
-                <div className="min-w-0">
-                  <h4 className="font-display font-bold text-sm text-teal-300 flex items-center gap-1.5">
-                    <Smartphone className="w-4 h-4 text-teal-400 shrink-0" />
-                    <span>এডুফ্লো অ্যাপ ইনস্টল করুন</span>
+                <div>
+                  <h4 className="font-bold text-white text-sm">
+                    এডুফ্লো অ্যাপটি ফোনে ডাউনলোড করুন!
                   </h4>
-                  <p className="text-xs text-slate-300 mt-1 font-medium leading-relaxed">
-                    আপনার মোবাইলের হোম স্ক্রিনে সরাসরি অ্যাপের মতো ব্যবহার করতে এখনই ইন্সটল করুন। এটি অত্যন্ত দ্রুত, নিরাপদ ও অফলাইনেও কাজ করে!
+                  <p className="text-teal-100 text-xs mt-0.5">
+                    হোম স্ক্রিনে সরাসরি ইনস্টল করে কোচিংয়ের আপডেট পান সহজে।
                   </p>
                 </div>
               </div>
 
-              {/* Interactive Install Guideline based on iOS / Android */}
-              <div className="border-t border-slate-800/80 pt-3 flex items-center justify-between gap-4 mt-1">
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 self-end sm:self-auto w-full sm:w-auto">
                 {isIOS ? (
-                  <div className="flex items-center gap-2.5 bg-teal-950/40 border border-teal-900/40 px-3 py-2.5 rounded-xl w-full text-[11px] text-slate-200">
-                    <Share className="w-4 h-4 text-teal-400 animate-pulse shrink-0" />
-                    <span className="leading-normal">
-                      আইফোনে ইনস্টল করতে সাফারি ব্রাউজারের নিচে <strong className="text-white">Share (শেয়ার)</strong> বাটনে ক্লিক করে <strong className="text-white">'Add to Home Screen'</strong> সিলেক্ট করুন।
-                    </span>
+                  <div className="bg-teal-700/50 text-white text-[11px] px-3 py-2 rounded-lg flex items-center gap-2 w-full sm:w-auto">
+                    <Share className="w-3.5 h-3.5 shrink-0" />
+                    <span>সাফারিতে <strong className="font-bold">Share &gt; Add to Home Screen</strong> চাপুন</span>
                   </div>
                 ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleDismiss}
-                      className="px-3.5 py-2 rounded-xl text-slate-400 hover:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
-                    >
-                      পরে করব
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleInstallClick}
-                      className="flex items-center space-x-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-extrabold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-teal-500/10 hover:shadow-teal-500/20 active:scale-97 transition-all cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>{deferredPrompt ? 'এখনই ইনস্টল করুন' : 'কীভাবে ইনস্টল করবেন'}</span>
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    onClick={handleInstallClick}
+                    className="flex-1 sm:flex-none bg-white text-teal-700 hover:bg-teal-50 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>{deferredPrompt ? 'ডাউনলোড' : 'কীভাবে ইনস্টল করবেন'}</span>
+                  </button>
                 )}
+                
+                {/* Close button for Desktop */}
+                <button
+                  type="button"
+                  onClick={handleDismiss}
+                  className="hidden sm:block text-teal-100 hover:text-white transition-colors cursor-pointer ml-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </>
           ) : (
-            /* Elegant manual installation step-by-step guidance */
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-teal-400 shrink-0" />
-                <h4 className="font-display font-bold text-sm text-teal-300">
-                  ম্যানুয়াল ইনস্টলেশন গাইড
-                </h4>
+            /* Manual installation guide inline */
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-4">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-teal-200 shrink-0 mt-0.5" />
+                <div className="text-xs text-teal-50">
+                  <h4 className="font-bold text-white text-sm mb-1">কীভাবে ইনস্টল করবেন</h4>
+                  {isMobile ? (
+                    <p>আপনার ব্রাউজারের <strong className="text-white">তিনটি ডট (⋮)</strong> মেনু থেকে <strong className="text-white">"Install app"</strong> বা <strong className="text-white">"Add to Home Screen"</strong> সিলেক্ট করুন।</p>
+                  ) : (
+                    <p>ব্রাউজারের অ্যাড্রেস বারের ডান কোণে থাকা <strong className="text-white">⊕ (ইনস্টল)</strong> আইকনে ক্লিক করুন।</p>
+                  )}
+                </div>
               </div>
-
-              <div className="text-xs text-slate-300 space-y-2 max-h-[180px] overflow-y-auto pr-1">
-                {isMobile ? (
-                  <div className="space-y-2">
-                    <p className="font-semibold text-slate-200">মোবাইলে ইনস্টল করতে:</p>
-                    <ol className="list-decimal list-inside space-y-1.5 pl-1">
-                      <li>আপনার ব্রাউজারের ডানদিকের উপরের কোণায় থাকা <strong className="text-teal-400">তিনটি ডট (⋮)</strong> মেনুতে ক্লিক করুন।</li>
-                      <li>সেখান থেকে <strong className="text-white">"Install app"</strong> অথবা <strong className="text-white">"Add to Home Screen"</strong> অপশনটি সিলেক্ট করুন।</li>
-                      <li>কনফার্ম করতে <strong className="text-teal-400">"Install"</strong> বাটনে ক্লিক করুন।</li>
-                    </ol>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="font-semibold text-slate-200">ডেস্কটপে ইনস্টল করতে:</p>
-                    <ol className="list-decimal list-inside space-y-1.5 pl-1">
-                      <li>ক্রোম বা এজ ব্রাউজারের অ্যাড্রেস বারের ডান কোণে থাকা <strong className="text-teal-400">⊕ (ইনস্টল)</strong> আইকনে ক্লিক করুন।</li>
-                      <li>অথবা ব্রাউজার মেনু <strong className="text-teal-400">(⋮)</strong> থেকে <strong className="text-white">"Save and share"</strong> সিলেক্ট করে <strong className="text-white">"Install app"</strong>-এ ক্লিক করুন।</li>
-                    </ol>
-                  </div>
-                )}
-              </div>
-
-              <div className="border-t border-slate-800/80 pt-3 flex items-center justify-end gap-2 mt-1">
+              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowManualGuide(false)}
-                  className="px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                  className="text-teal-100 hover:text-white text-xs font-bold px-3 py-2 cursor-pointer"
                 >
                   ফিরে যান
                 </button>
                 <button
                   type="button"
                   onClick={handleDismiss}
-                  className="bg-teal-500/10 border border-teal-500/30 text-teal-300 hover:bg-teal-500/20 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  className="bg-teal-700 text-white hover:bg-teal-800 px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                 >
                   বুঝেছি
                 </button>
               </div>
             </div>
           )}
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
     </AnimatePresence>
   );
 };

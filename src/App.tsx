@@ -149,9 +149,11 @@ export default function App() {
       <div className="min-h-screen bg-gray-50/50">
         <Navbar user={null} onLogout={() => {}} />
         <main className="pb-16">
+          <div className="max-w-md mx-auto px-4 pt-6 -mb-2">
+            <PWAInstallPrompt />
+          </div>
           <AuthScreen onAuthSuccess={handleAuthSuccess} />
         </main>
-        <PWAInstallPrompt />
       </div>
     );
   }
@@ -162,13 +164,15 @@ export default function App() {
       <Navbar user={user} onLogout={handleLogout} />
       
       <main className="pb-16 animate-fade-in">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 -mb-2">
+          <PWAInstallPrompt />
+        </div>
         {user.role === 'teacher' ? (
           <TeacherDashboard user={user} />
         ) : (
           <StudentDashboard user={user} />
         )}
       </main>
-      <PWAInstallPrompt />
     </div>
   );
 }

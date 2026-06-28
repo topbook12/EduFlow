@@ -272,42 +272,6 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         {/* Right column: Auth Forms & Instant Sandbox Access */}
         <div className="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-center bg-white">
           
-          {/* Quick Demo Accounts Header */}
-          <div className="bg-gradient-to-br from-teal-50/50 via-teal-50/20 to-amber-50/30 rounded-3xl border-2 border-teal-100/60 p-5 mb-8 shadow-inner relative overflow-hidden">
-            <div className="absolute -right-6 -bottom-6 w-16 h-16 bg-teal-500/10 rounded-full blur-xl"></div>
-            <div className="flex items-center space-x-2.5 text-teal-950 mb-2">
-              <Sparkles className="h-5.5 w-5.5 text-teal-600 animate-bounce" />
-              <h3 className="font-extrabold text-base">ঝটপট টেস্ট করার ডেমো মোড (এক ক্লিকে প্রবেশ)</h3>
-            </div>
-            <p className="text-xs text-gray-600 mb-4 font-semibold leading-relaxed">
-              নতুন আইডি না খুলেই রিয়েল-টাইম ডাটা, ক্লাস রুটিন ও ট্র্যাকার ফ্যামিলিয়ারাইজেশনের জন্য নিচের যেকোনো একটি বাটন চাপুন:
-            </p>
-            <div className="grid grid-cols-2 gap-3.5">
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('teacher')}
-                disabled={loading}
-                className="shimmer-btn flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-2xl text-xs sm:text-sm font-black shadow-md shadow-amber-500/10 transition-all duration-150 transform active:scale-95 cursor-pointer"
-              >
-                <span>👨‍🏫 ডেমো টিচার লগইন</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('student')}
-                disabled={loading}
-                className="shimmer-btn flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white rounded-2xl text-xs sm:text-sm font-black shadow-md shadow-teal-600/10 transition-all duration-150 transform active:scale-95 cursor-pointer"
-              >
-                <span>🎓 ডেমো স্টুডেন্ট লগইন</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="relative flex py-2 items-center mb-6">
-            <div className="flex-grow border-t-2 border-gray-100"></div>
-            <span className="flex-shrink mx-4 text-gray-400 text-xs font-bold uppercase tracking-widest">অথবা নিজের আইডি খুলুন</span>
-            <div className="flex-grow border-t-2 border-gray-100"></div>
-          </div>
-
           {/* Regular Login/Signup Form */}
           <div>
             {/* Tabs */}

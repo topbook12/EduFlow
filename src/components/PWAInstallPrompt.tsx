@@ -146,21 +146,14 @@ export const PWAInstallPrompt: React.FC = () => {
 
               {/* Action Buttons */}
               <div className="flex items-center gap-3 self-end sm:self-auto w-full sm:w-auto">
-                {isIOS ? (
-                  <div className="bg-teal-700/50 text-white text-[11px] px-3 py-2 rounded-lg flex items-center gap-2 w-full sm:w-auto">
-                    <Share className="w-3.5 h-3.5 shrink-0" />
-                    <span>সাফারিতে <strong className="font-bold">Share &gt; Add to Home Screen</strong> চাপুন</span>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleInstallClick}
-                    className="flex-1 sm:flex-none bg-white text-teal-700 hover:bg-teal-50 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>{deferredPrompt ? 'ডাউনলোড' : 'কীভাবে ইনস্টল করবেন'}</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleInstallClick}
+                  className="flex-1 sm:flex-none bg-white text-teal-700 hover:bg-teal-50 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>ডাউনলোড</span>
+                </button>
                 
                 {/* Close button for Desktop */}
                 <button

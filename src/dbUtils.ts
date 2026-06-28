@@ -738,22 +738,48 @@ export async function confirmPaymentStatus(
 ): Promise<void> {
   const enrollmentId = `${batchId}_${studentId}`;
 
+  let finalPaidAmount: number | undefined = undefined;
+
   const enrollments = getLocalCollection<Enrollment>('enrollments');
   const enrollObj = enrollments.find(e => e.id === enrollmentId);
   if (enrollObj) {
     enrollObj.paymentStatus = { ...enrollObj.paymentStatus, [month]: status };
+    
+    if (status === 'paid') {
+      const batches = getLocalCollection<Batch>('batches');
+      const batchObj = batches.find(b => b.id === batchId);
+      const fee = enrollObj.customFee !== undefined ? enrollObj.customFee : (batchObj?.monthlyFee || 1200);
+      const discount = enrollObj.discount || 0;
+      const extraTotal = enrollObj.extraCharges?.[month]?.reduce((sum, item) => sum + item.amount, 0) || 0;
+      const netPayable = Math.max(0, fee - discount) + extraTotal;
+      
+      if (!enrollObj.paidAmountMap) enrollObj.paidAmountMap = {};
+      enrollObj.paidAmountMap[month] = netPayable;
+      finalPaidAmount = netPayable;
+    }
+    
     setLocalCollection('enrollments', enrollments);
   }
 
   await runOnlineWrite(async () => {
     const enrollmentRef = doc(db, 'enrollments', enrollmentId);
     try {
-      await updateDoc(enrollmentRef, { [`paymentStatus.${month}`]: status });
+      const updates: any = { [`paymentStatus.${month}`]: status };
+      if (finalPaidAmount !== undefined) {
+        updates[`paidAmountMap.${month}`] = finalPaidAmount;
+      }
+      await updateDoc(enrollmentRef, updates);
     } catch (fsError) {
       const snap = await getDoc(enrollmentRef);
       if (snap.exists()) {
         const currentStatus = snap.data()?.paymentStatus || {};
-        await updateDoc(enrollmentRef, { paymentStatus: { ...currentStatus, [month]: status } });
+        const currentPaidMap = snap.data()?.paidAmountMap || {};
+        
+        const updates: any = { paymentStatus: { ...currentStatus, [month]: status } };
+        if (finalPaidAmount !== undefined) {
+          updates.paidAmountMap = { ...currentPaidMap, [month]: finalPaidAmount };
+        }
+        await updateDoc(enrollmentRef, updates);
       } else {
         throw fsError;
       }

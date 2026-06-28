@@ -2110,7 +2110,19 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                             </div>
 
                             {/* Action Buttons Group */}
-                            <div className="flex space-x-1 shrink-0">
+                            <div className="flex space-x-1 shrink-0 items-center">
+                              {/* Approve Pending Payment */}
+                              {status === 'pending' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleVerifyPayment(student.studentId, 'paid')}
+                                  className="flex h-8 px-2 items-center justify-center bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-600 rounded-xl transition-all border border-emerald-100 cursor-pointer text-xs font-bold mr-1"
+                                  title="পেমেন্ট একসেপ্ট করুন"
+                                >
+                                  একসেপ্ট
+                                </button>
+                              )}
+
                               {/* Record Custom Payment */}
                               <button
                                 type="button"

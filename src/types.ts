@@ -98,3 +98,12 @@ export interface DailyRoadmapItem {
   teacherName: string;
   time: string; // e.g. "04:30 PM"
 }
+
+export interface Attendance {
+  id: string; // `${batchId}_${date}_${studentId}`
+  batchId: string;
+  studentId: string;
+  studentName: string;
+  date: string; // YYYY-MM-DD
+  status: 'present' | 'absent' | 'late';
+}

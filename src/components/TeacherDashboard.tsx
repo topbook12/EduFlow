@@ -24,7 +24,7 @@ import {
   LayoutGrid,
   List
 } from 'lucide-react';
-import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip as ChartTooltip, Legend } from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip as ChartTooltip, Legend, LineChart, Line, AreaChart, Area, CartesianGrid } from 'recharts';
 import { 
   createBatch, 
   updateBatchSchedule, 
@@ -39,12 +39,17 @@ import {
   subscribeToTeacherMaterials,
   updateEnrollmentBilling,
   recordStudentPayment,
+  rejectStudentPayment,
   removeStudentFromBatch,
   updateStudentExtraCharges,
-  updateBatchWideExtraCharges
+  updateBatchWideExtraCharges,
+  subscribeToBatchAttendance,
+  saveStudentAttendance,
+  seedAttendanceIfEmpty
 } from '../dbUtils';
-import { AppUser, Batch, Enrollment, StudyMaterial, Notice, BatchSchedule, ExtraCharge } from '../types';
+import { AppUser, Batch, Enrollment, StudyMaterial, Notice, BatchSchedule, ExtraCharge, Attendance } from '../types';
 import { generateTeacherReport } from '../utils/reportGenerator';
+import { TeacherPerformanceView } from './TeacherPerformanceView';
 
 interface TeacherDashboardProps {
   user: AppUser;
@@ -153,17 +158,22 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
   // Safe non-blocking modal confirmation states
   const [showDeleteBatchId, setShowDeleteBatchId] = useState<string | null>(null);
   const [showRemoveStudentInfo, setShowRemoveStudentInfo] = useState<{ batchId: string; studentId: string; name: string } | null>(null);
+  
+  // Rejection and payment controls
+  const [rejectingStudentEnrollment, setRejectingStudentEnrollment] = useState<Enrollment | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // UI Filter States
   const [paymentFilterMonth, setPaymentFilterMonth] = useState('June 2026');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<'all' | 'paid' | 'pending' | 'unpaid'>('all');
+  const [studentStatusFilter, setStudentStatusFilter] = useState<'all' | 'active' | 'pending'>('all');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
   // Notification States
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'batches' | 'broadcast' | 'materials' | 'students'>('batches');
+  const [activeTab, setActiveTab] = useState<'batches' | 'broadcast' | 'materials' | 'students' | 'performance'>('batches');
   const [scheduleViewMode, setScheduleViewMode] = useState<'cards' | 'list'>('cards');
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const [showCreateBatch, setShowCreateBatch] = useState(false);
@@ -189,7 +199,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
   // Synchronize selectedBatchId when batches change (e.g. deletion, initial load)
   useEffect(() => {
     if (batches.length > 0) {
-      if (!selectedBatchId || !batches.some(b => b.id === selectedBatchId)) {
+      if (!selectedBatchId || (!batches.some(b => b.id === selectedBatchId) && selectedBatchId !== 'all')) {
         const firstId = batches[0].id;
         setSelectedBatchId(firstId);
         setBroadcastTargetBatchId(firstId);
@@ -398,10 +408,63 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
   // Confirm/Alter Student Payment Status
   const handleVerifyPayment = async (studentId: string, status: 'paid' | 'unpaid') => {
     try {
-      await confirmPaymentStatus(selectedBatchId, studentId, paymentFilterMonth, status);
-      setSuccessMsg("Payment status updated successfully!");
+      const enrollment = enrollments.find(e => e.studentId === studentId);
+      if (!enrollment) return;
+      await confirmPaymentStatus(enrollment.batchId, studentId, paymentFilterMonth, status);
+      setSuccessMsg("পেমেন্ট সফলভাবে একসেপ্ট করা হয়েছে ও পেমেন্ট স্ট্যাটাস আপডেট হয়েছে!");
     } catch (error) {
       console.error("Failed to update payment status:", error);
+    }
+  };
+
+  // Open rejection UI for pending payment
+  const handleRejectPayment = (student: Enrollment) => {
+    setRejectingStudentEnrollment(student);
+    setRejectionReason('ভুল ট্রানজেকশন আইডি অথবা পরিশোধিত টাকা পাওয়া যায়নি।');
+  };
+
+  // Handle submit of payment rejection
+  const handleSubmitRejection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectingStudentEnrollment) return;
+    try {
+      setLoading(true);
+      await rejectStudentPayment(
+        rejectingStudentEnrollment.batchId,
+        rejectingStudentEnrollment.studentId,
+        paymentFilterMonth,
+        rejectionReason
+      );
+      setSuccessMsg(`${rejectingStudentEnrollment.studentName}-এর পেমেন্ট রিকোয়েস্টটি সফলভাবে প্রত্যাখ্যান করা হয়েছে।`);
+      setRejectingStudentEnrollment(null);
+      setRejectionReason('');
+    } catch (error) {
+      console.error("Rejection failed:", error);
+      setErrorMsg("পেমেন্ট প্রত্যাখ্যান করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Process direct cash payment for student
+  const handleDirectCashPayment = async (student: Enrollment, dueAmount: number) => {
+    try {
+      setLoading(true);
+      await recordStudentPayment(
+        student.batchId,
+        student.studentId,
+        paymentFilterMonth,
+        dueAmount,
+        'Cash',
+        '',
+        'সরাসরি ক্যাশে গ্রহণ করা হয়েছে'
+      );
+      setSuccessMsg(`${student.studentName}-এর ক্যাশ পেমেন্ট ৳${dueAmount} সফলভাবে রেকর্ড করা হয়েছে!`);
+    } catch (error) {
+      console.error("Failed to record cash payment:", error);
+      setErrorMsg("ক্যাশ পেমেন্ট রেকর্ড করতে ব্যর্থ হয়েছে।");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -423,7 +486,8 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
     setCustomStudentName(student.studentName);
     setCustomStudentPhone(student.studentPhone);
     setCustomStudentInstitution(student.studentInstitution || '');
-    setCustomStudentFee(student.customFee !== undefined ? student.customFee : (activeBatch?.monthlyFee || 1200));
+    const studentBatch = batches.find(b => b.id === student.batchId);
+    setCustomStudentFee(student.customFee !== undefined ? student.customFee : (studentBatch?.monthlyFee || 1200));
     setCustomStudentDiscount(student.discount || 0);
     setCustomStudentStatus(student.status);
   };
@@ -434,7 +498,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
     if (!editingEnrollment) return;
     setLoading(true);
     try {
-      await updateEnrollmentBilling(selectedBatchId, editingEnrollment.studentId, {
+      await updateEnrollmentBilling(editingEnrollment.batchId, editingEnrollment.studentId, {
         studentName: customStudentName.trim(),
         studentPhone: customStudentPhone.trim(),
         studentInstitution: customStudentInstitution.trim() || undefined,
@@ -455,7 +519,8 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
   // Open record payment modal
   const handleOpenRecordPayment = (student: Enrollment) => {
     setPayingEnrollment(student);
-    const fee = student.customFee !== undefined ? student.customFee : (activeBatch?.monthlyFee || 1200);
+    const studentBatch = batches.find(b => b.id === student.batchId);
+    const fee = student.customFee !== undefined ? student.customFee : (studentBatch?.monthlyFee || 1200);
     const discount = student.discount || 0;
     const netPayable = Math.max(0, fee - discount);
     const paid = student.paidAmountMap?.[paymentFilterMonth] || 0;
@@ -478,7 +543,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
     setLoading(true);
     try {
       await recordStudentPayment(
-        selectedBatchId,
+        payingEnrollment.batchId,
         payingEnrollment.studentId,
         paymentFilterMonth,
         recordAmount,
@@ -633,22 +698,38 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
 
   // Filtered Roster Lists for Selected Batch
   const getSelectedBatchRoster = () => {
-    const roster = enrollments.filter(e => e.batchId === selectedBatchId);
+    const teacherBatchIds = batches.map(b => b.id);
+    const roster = selectedBatchId === 'all'
+      ? enrollments.filter(e => teacherBatchIds.includes(e.batchId))
+      : enrollments.filter(e => e.batchId === selectedBatchId);
     
+    // Apply enrollment status filter
+    const statusFiltered = roster.filter(student => {
+      if (studentStatusFilter === 'all') return true;
+      return student.status === studentStatusFilter;
+    });
+
     // Apply payment filter
-    const paymentFiltered = roster.filter(student => {
+    const paymentFiltered = statusFiltered.filter(student => {
       const status = student.paymentStatus?.[paymentFilterMonth] || 'unpaid';
       if (paymentStatusFilter === 'all') return true;
       return status === paymentStatusFilter;
     });
 
-    // Apply text search
+    // Apply text search (searches student details + batch details)
     if (!studentSearchQuery.trim()) return paymentFiltered;
-    return paymentFiltered.filter(student => 
-      student.studentName.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-      student.studentPhone.includes(studentSearchQuery) ||
-      (student.studentInstitution && student.studentInstitution.toLowerCase().includes(studentSearchQuery.toLowerCase()))
-    );
+    const query = studentSearchQuery.toLowerCase();
+    return paymentFiltered.filter(student => {
+      const batchObj = batches.find(b => b.id === student.batchId);
+      const bName = batchObj ? batchObj.name.toLowerCase() : '';
+      const bSubject = batchObj ? batchObj.subject.toLowerCase() : '';
+
+      return student.studentName.toLowerCase().includes(query) ||
+        student.studentPhone.includes(query) ||
+        (student.studentInstitution && student.studentInstitution.toLowerCase().includes(query)) ||
+        bName.includes(query) ||
+        bSubject.includes(query);
+    });
   };
 
   const selectedBatchRoster = getSelectedBatchRoster();
@@ -785,6 +866,16 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
     setSuccessMsg(`রুটিন পরিবর্তন ফর্মে ${BENGALI_DAYS[day]} ${formatTimeTo12Hour(time)} স্লটটি সফলভাবে যুক্ত করা হয়েছে!`);
   };
 
+  // Count total notifications (pending payments and join requests)
+  const pendingPaymentCount = enrollments.reduce((acc, enroll) => {
+    if (!enroll.paymentStatus) return acc;
+    const pendingMonths = Object.values(enroll.paymentStatus).filter(status => status === 'pending');
+    return acc + pendingMonths.length;
+  }, 0);
+
+  const pendingJoinCount = enrollments.filter(e => e.status === 'pending').length;
+  const totalStudentNotifications = pendingPaymentCount + pendingJoinCount;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 pb-24 lg:pb-8 sm:px-6 lg:px-8">
       
@@ -860,7 +951,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
 
           <button
             onClick={() => setActiveTab('students')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+            className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-200 cursor-pointer relative ${
               activeTab === 'students'
                 ? 'bg-white text-[#0f865f] shadow-sm'
                 : 'text-white/80 hover:bg-white/10 hover:text-white'
@@ -868,6 +959,23 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
           >
             <span className="text-lg">👨‍🎓</span>
             <span>শিক্ষার্থী</span>
+            {totalStudentNotifications > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white ring-2 ring-[#0f865f] animate-pulse">
+                {totalStudentNotifications}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('performance')}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+              activeTab === 'performance'
+                ? 'bg-white text-[#0f865f] shadow-sm'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <span className="text-lg">📈</span>
+            <span>পারফরম্যান্স</span>
           </button>
         </div>,
         portalNode
@@ -1602,6 +1710,9 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                   onChange={(e) => setSelectedBatchId(e.target.value)}
                   className="border-2 border-teal-600 bg-teal-50 text-teal-800 rounded-xl p-2 text-xs font-bold focus:outline-none"
                 >
+                  {batches.length > 0 && (
+                    <option value="all">📁 সব ব্যাচ (All Batches)</option>
+                  )}
                   {batches.map(b => (
                     <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
@@ -1769,7 +1880,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                 )}
 
                 {/* Filters */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-gray-50/50 p-3 rounded-2xl border border-gray-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50/50 p-3 rounded-2xl border border-gray-100">
                   {/* Select billing month */}
                   <div>
                     <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">মাস সিলেক্ট করুন</label>
@@ -1784,6 +1895,20 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                     </select>
                   </div>
 
+                  {/* Student Status Filter */}
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">ভর্তি স্ট্যাটাস ফিল্টার</label>
+                    <select
+                      value={studentStatusFilter}
+                      onChange={(e) => setStudentStatusFilter(e.target.value as any)}
+                      className="w-full bg-white border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none"
+                    >
+                      <option value="all">সব ভর্তি স্ট্যাটাস</option>
+                      <option value="active">Active (সক্রিয়)</option>
+                      <option value="pending">Pending (অনুমোদন অপেক্ষমান)</option>
+                    </select>
+                  </div>
+
                   {/* Payment status selector */}
                   <div>
                     <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">বেতন স্ট্যাটাস ফিল্টার</label>
@@ -1792,7 +1917,13 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                       onChange={(e) => setPaymentStatusFilter(e.target.value as any)}
                       className="w-full bg-white border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none"
                     >
-                      <option value="all">সব শিক্ষার্থী ({enrollments.filter(e => e.batchId === selectedBatchId).length})</option>
+                      <option value="all">
+                        সব পেমেন্ট স্ট্যাটাস ({
+                          selectedBatchId === 'all'
+                            ? enrollments.filter(e => batches.map(b => b.id).includes(e.batchId)).length
+                            : enrollments.filter(e => e.batchId === selectedBatchId).length
+                        })
+                      </option>
                       <option value="paid">পরিশোধিত (Paid)</option>
                       <option value="pending">রিপোর্ট করেছেন (Pending Review)</option>
                       <option value="unpaid">বকেয়া (Unpaid)</option>
@@ -1801,14 +1932,14 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
 
                   {/* Search query input */}
                   <div>
-                    <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">খুঁজুন (Search Student)</label>
+                    <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">খুঁজুন (Search Student/Batch)</label>
                     <div className="relative">
                       <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-400" />
                       <input
                         type="text"
                         value={studentSearchQuery}
                         onChange={(e) => setStudentSearchQuery(e.target.value)}
-                        placeholder="নাম বা মোবাইল নম্বর..."
+                        placeholder="নাম, ফোন, প্রতিষ্ঠান বা ব্যাচ..."
                         className="w-full bg-white border border-gray-200 rounded-xl pl-8 pr-2.5 py-1 text-xs focus:outline-none"
                       />
                     </div>
@@ -1816,7 +1947,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                 </div>
 
                 {/* Batch Action Bar */}
-                {selectedBatchId && (
+                {selectedBatchId && selectedBatchId !== 'all' && (
                   <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
                     <div className="flex items-center gap-2.5">
                       <span className="p-1.5 bg-amber-100 text-amber-800 rounded-lg">
@@ -1838,10 +1969,12 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                 )}
 
                 {/* Advanced Monthly Analytics Summary Cards */}
-                {selectedBatchId && (() => {
-                  const activeRoster = enrollments.filter(e => e.batchId === selectedBatchId);
+                 {selectedBatchId && (() => {
+                  const teacherBatchIds = batches.map(b => b.id);
+                  const activeRoster = selectedBatchId === 'all'
+                    ? enrollments.filter(e => teacherBatchIds.includes(e.batchId))
+                    : enrollments.filter(e => e.batchId === selectedBatchId);
                   const activeBatchObj = batches.find(b => b.id === selectedBatchId);
-                  const defFee = activeBatchObj?.monthlyFee || 1200;
 
                   let totalExpected = 0;
                   let totalCollected = 0;
@@ -1851,6 +1984,8 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                   let unpaidCount = 0;
 
                   activeRoster.forEach(student => {
+                    const studentBatch = batches.find(b => b.id === student.batchId);
+                    const defFee = studentBatch?.monthlyFee || 1200;
                     const fee = student.customFee !== undefined ? student.customFee : defFee;
                     const discount = student.discount || 0;
                     const extraChargesSum = student.extraCharges?.[paymentFilterMonth]?.reduce((sum, item) => sum + item.amount, 0) || 0;
@@ -1999,6 +2134,117 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                   );
                 })()}
 
+                {/* Pending Verification Queue */}
+                {(() => {
+                  const teacherBatchIds = batches.map(b => b.id);
+                  const pendingApprovalList = enrollments.filter(
+                    e => (selectedBatchId === 'all' ? teacherBatchIds.includes(e.batchId) : e.batchId === selectedBatchId) && 
+                         e.paymentStatus?.[paymentFilterMonth] === 'pending'
+                  );
+                  
+                  if (pendingApprovalList.length === 0) return null;
+
+                  return (
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50/50 border border-amber-200 rounded-3xl p-5 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-500 text-white animate-bounce text-xs">
+                            🔔
+                          </span>
+                          <div>
+                            <h3 className="font-extrabold text-sm text-slate-800">পেন্ডিং পেমেন্ট রিভিউ তালিকা</h3>
+                            <p className="text-[10px] text-amber-700 font-semibold">নিচের শিক্ষার্থীদের অনলাইন পেমেন্ট রিকোয়েস্টগুলো চেক করে একসেপ্ট অথবা রিজেক্ট করুন</p>
+                          </div>
+                        </div>
+                        <span className="bg-amber-100 text-amber-800 text-xs font-black px-2.5 py-1 rounded-full">
+                          {pendingApprovalList.length} টি পেন্ডিং
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {pendingApprovalList.map((student) => {
+                          const latestTx = student.paymentHistory
+                            ?.filter(t => t.month === paymentFilterMonth)
+                            ?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+                          const defaultFee = activeBatch?.monthlyFee || 1200;
+                          const fee = student.customFee !== undefined ? student.customFee : defaultFee;
+                          const discount = student.discount || 0;
+                          const extraChargesSum = student.extraCharges?.[paymentFilterMonth]?.reduce((sum, item) => sum + item.amount, 0) || 0;
+                          const netPayable = Math.max(0, fee - discount) + extraChargesSum;
+
+                          const paid = student.paidAmountMap?.[paymentFilterMonth] !== undefined
+                            ? student.paidAmountMap[paymentFilterMonth]
+                            : 0;
+
+                          const due = Math.max(0, netPayable - paid);
+
+                          return (
+                            <div key={`pending-q-${student.id}`} className="bg-white border border-amber-100 rounded-2xl p-4 shadow-sm space-y-3 hover:shadow transition-all">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h4 className="font-bold text-sm text-slate-900">{student.studentName}</h4>
+                                  <p className="text-[10px] text-gray-500">📞 {student.studentPhone}</p>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs font-black text-slate-800 block">৳{netPayable}</span>
+                                  <span className="text-[9px] text-amber-600 font-bold uppercase">বকেয়া: ৳{due}</span>
+                                </div>
+                              </div>
+
+                              {latestTx && (
+                                <div className="bg-slate-50 rounded-xl p-3 text-[11px] space-y-1.5 border border-slate-100">
+                                  <div className="grid grid-cols-2 gap-2 text-gray-600">
+                                    <div>মাধ্যম: <strong className="text-slate-800">{latestTx.method}</strong></div>
+                                    <div>পরিমাণ: <strong className="text-teal-600">৳{latestTx.amount}</strong></div>
+                                  </div>
+                                  {latestTx.trxId && (
+                                    <div className="text-gray-500 bg-white border border-slate-200/60 px-2 py-1 rounded-lg font-mono text-[10px]">
+                                      TrxID: <span className="font-extrabold text-slate-800 select-all">{latestTx.trxId}</span>
+                                    </div>
+                                  )}
+                                  {latestTx.note && (
+                                    <div className="text-gray-500 italic text-[10px] border-t border-dashed border-gray-200 pt-1">
+                                      "{latestTx.note}"
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="flex gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleVerifyPayment(student.studentId, 'paid')}
+                                  className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+                                >
+                                  ✓ একসেপ্ট করুন
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRejectPayment(student)}
+                                  className="flex-1 h-9 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold border border-rose-100 transition-all cursor-pointer"
+                                >
+                                  ❌ রিজেক্ট করুন
+                                </button>
+                                {due > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDirectCashPayment(student, due)}
+                                    className="h-9 px-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl text-xs font-bold border border-amber-100 transition-all cursor-pointer"
+                                    title="সরাসরি ক্যাশে সম্পুর্ণ বকেয়া গ্রহণ"
+                                  >
+                                    💵 ক্যাশ
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Roster & Billing Table / Cards List */}
                 {selectedBatchRoster.length === 0 ? (
                   <div className="text-center py-8 rounded-2xl border border-dashed border-gray-200 bg-gray-50/40">
@@ -2008,7 +2254,8 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                   <div className="space-y-3.5">
                     {selectedBatchRoster.map((student) => {
                       const status = student.paymentStatus?.[paymentFilterMonth] || 'unpaid';
-                      const defaultFee = activeBatch?.monthlyFee || 1200;
+                      const studentBatch = batches.find(b => b.id === student.batchId);
+                      const defaultFee = studentBatch?.monthlyFee || 1200;
                       const fee = student.customFee !== undefined ? student.customFee : defaultFee;
                       const discount = student.discount || 0;
                       const extraChargesSum = student.extraCharges?.[paymentFilterMonth]?.reduce((sum, item) => sum + item.amount, 0) || 0;
@@ -2034,6 +2281,11 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                               }`}>
                                 {student.status === 'active' ? 'Active' : 'Pending Request'}
                               </span>
+                              {studentBatch && (
+                                <span className="rounded-md bg-teal-50 text-teal-800 border border-teal-200/50 px-1.5 py-0.5 text-[9px] font-extrabold flex items-center gap-0.5">
+                                  📚 {studentBatch.name}
+                                </span>
+                              )}
                             </div>
                             <div className="space-y-0.5 text-xs text-gray-500">
                               <div className="flex items-center gap-1.5">
@@ -2048,6 +2300,59 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                                 {student.studentEmail}
                               </div>
                             </div>
+
+                            {(() => {
+                              const latestTx = student.paymentHistory
+                                ?.filter(t => t.month === paymentFilterMonth)
+                                ?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+                              
+                              if (!latestTx) return null;
+
+                              const isRejected = latestTx.note?.includes('❌') || latestTx.method === 'System';
+
+                              return (
+                                <div className={`mt-2.5 text-[11px] rounded-2xl p-3 border space-y-1.5 leading-relaxed transition-all shadow-inner ${
+                                  status === 'pending'
+                                    ? 'bg-amber-50/70 border-amber-100'
+                                    : isRejected
+                                      ? 'bg-rose-50/60 border-rose-100'
+                                      : 'bg-emerald-50/40 border-emerald-100'
+                                }`}>
+                                  <div className="flex items-center justify-between">
+                                    <span className={`font-black uppercase tracking-wider ${
+                                      status === 'pending'
+                                        ? 'text-amber-800'
+                                        : isRejected
+                                          ? 'text-rose-800'
+                                          : 'text-emerald-800'
+                                    }`}>
+                                      {status === 'pending' 
+                                        ? '🔔 নতুন পেমেন্ট রিপোর্ট' 
+                                        : isRejected
+                                          ? '❌ রিজেক্টেড নোটিশ'
+                                          : '✓ পেমেন্ট ট্রানজেকশন'}
+                                    </span>
+                                    <span className="text-gray-400 text-[9px]">
+                                      {new Date(latestTx.date).toLocaleDateString('bn-BD')}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2 text-gray-600 font-semibold">
+                                    <div>মাধ্যম: <strong className="text-slate-800">{latestTx.method}</strong></div>
+                                    <div>পরিমাণ: <strong className="text-slate-800">৳{latestTx.amount}</strong></div>
+                                  </div>
+                                  {latestTx.trxId && (
+                                    <div className="text-gray-600 bg-white/60 border border-slate-100 px-2 py-1 rounded-lg font-mono text-[10px] flex justify-between items-center gap-1.5 shadow-sm">
+                                      <span>TrxID: <span className="font-bold text-slate-800 select-all">{latestTx.trxId}</span></span>
+                                    </div>
+                                  )}
+                                  {latestTx.note && (
+                                    <div className="text-gray-500 italic text-[10px] border-t border-slate-100/50 pt-1 mt-1 font-medium">
+                                      "{latestTx.note}"
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           {/* Middle Column: Fees & Discount */}
@@ -2113,13 +2418,35 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                             <div className="flex space-x-1 shrink-0 items-center">
                               {/* Approve Pending Payment */}
                               {status === 'pending' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleVerifyPayment(student.studentId, 'paid')}
+                                    className="flex h-8 px-2.5 items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-sm cursor-pointer text-xs font-extrabold mr-1 shrink-0"
+                                    title="পেমেন্ট একসেপ্ট করুন"
+                                  >
+                                    একসেপ্ট
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRejectPayment(student)}
+                                    className="flex h-8 px-2.5 items-center justify-center bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 rounded-xl transition-all border border-rose-100 cursor-pointer text-xs font-bold mr-1 shrink-0"
+                                    title="পেমেন্ট রিকোয়েস্ট রিজেক্ট করুন"
+                                  >
+                                    রিজেক্ট
+                                  </button>
+                                </>
+                              )}
+
+                              {/* Direct Cash Receipt shortcut */}
+                              {due > 0 && (
                                 <button
                                   type="button"
-                                  onClick={() => handleVerifyPayment(student.studentId, 'paid')}
-                                  className="flex h-8 px-2 items-center justify-center bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-600 rounded-xl transition-all border border-emerald-100 cursor-pointer text-xs font-bold mr-1"
-                                  title="পেমেন্ট একসেপ্ট করুন"
+                                  onClick={() => handleDirectCashPayment(student, due)}
+                                  className="flex h-8 px-2 items-center justify-center bg-amber-50 hover:bg-amber-600 hover:text-white text-amber-700 rounded-xl transition-all border border-amber-100 cursor-pointer text-xs font-bold mr-1 shrink-0"
+                                  title="সরাসরি ক্যাশে সম্পুর্ণ বকেয়া টাকা গ্রহণ করুন"
                                 >
-                                  একসেপ্ট
+                                  💵 ক্যাশ গ্রহণ
                                 </button>
                               )}
 
@@ -2156,7 +2483,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                               {/* Remove Student */}
                               <button
                                 type="button"
-                                onClick={() => setShowRemoveStudentInfo({ batchId: selectedBatchId, studentId: student.studentId, name: student.studentName })}
+                                onClick={() => setShowRemoveStudentInfo({ batchId: student.batchId, studentId: student.studentId, name: student.studentName })}
                                 className="flex h-8 w-8 items-center justify-center bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-all border border-red-100 cursor-pointer"
                                 title="স্টুডেন্ট বাতিল/kick করুন (Remove Student)"
                               >
@@ -2183,6 +2510,13 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
           </div>
 
         </div>
+        )}
+
+        {activeTab === 'performance' && (
+          <TeacherPerformanceView 
+            batches={batches}
+            enrollments={enrollments}
+          />
         )}
 
       </div>
@@ -2222,12 +2556,27 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
 
             <button
               onClick={() => setActiveTab('students')}
-              className={`flex flex-col items-center space-y-0.5 py-0.5 px-2 bg-transparent border-0 rounded-xl transition-all duration-100 transform active:scale-90 cursor-pointer ${
+              className={`flex flex-col items-center space-y-0.5 py-0.5 px-2 bg-transparent border-0 rounded-xl transition-all duration-100 transform active:scale-90 cursor-pointer relative ${
                 activeTab === 'students' ? 'text-teal-600 font-bold scale-105' : 'text-gray-500'
               }`}
             >
               <span className={`text-base drop-shadow-sm transition-all duration-150 ${activeTab === 'students' ? 'opacity-100' : 'opacity-60 grayscale'}`}>👨‍🎓</span>
+              {totalStudentNotifications > 0 && (
+                <span className="absolute top-0.5 right-2 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white ring-2 ring-white animate-pulse">
+                  {totalStudentNotifications}
+                </span>
+              )}
               <span className="text-[9px] font-bold font-sans mt-0.5 tracking-wide">স্টুডেন্ট</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('performance')}
+              className={`flex flex-col items-center space-y-0.5 py-0.5 px-2 bg-transparent border-0 rounded-xl transition-all duration-100 transform active:scale-90 cursor-pointer ${
+                activeTab === 'performance' ? 'text-teal-600 font-bold scale-105' : 'text-gray-500'
+              }`}
+            >
+              <span className={`text-base drop-shadow-sm transition-all duration-150 ${activeTab === 'performance' ? 'opacity-100' : 'opacity-60 grayscale'}`}>📈</span>
+              <span className="text-[9px] font-bold font-sans mt-0.5 tracking-wide">পারফরম্যান্স</span>
             </button>
           </div>
         </div>
@@ -2543,6 +2892,53 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                 বাতিল
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Reason Modal */}
+      {rejectingStudentEnrollment && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-100 max-w-md w-full p-6 shadow-2xl text-left space-y-4">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 text-lg font-bold">
+                ⚠️
+              </span>
+              <div>
+                <h3 className="font-display text-base font-black text-slate-950">পেমেন্ট প্রত্যাখ্যান করুন</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{rejectingStudentEnrollment.studentName} ({paymentFilterMonth})</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmitRejection} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">প্রত্যাখ্যানের কারণ লিখুন (শিক্ষার্থী দেখতে পাবে):</label>
+                <textarea
+                  required
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 min-h-[90px] text-slate-800 leading-relaxed font-semibold"
+                  placeholder="যেমন: ভুল ট্রানজেকশন আইডি অথবা টাকা পাওয়া যায়নি।"
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-1">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs sm:text-sm rounded-2xl transition-all shadow-md shadow-rose-600/10 cursor-pointer disabled:opacity-50"
+                >
+                  {loading ? 'প্রসেসিং হচ্ছে...' : 'প্রত্যাখ্যান নিশ্চিত করুন'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRejectingStudentEnrollment(null)}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm rounded-2xl transition-all cursor-pointer"
+                >
+                  বাতিল করুন
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

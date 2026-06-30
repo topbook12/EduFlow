@@ -185,6 +185,19 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
 
   const roadmapItems = getRoadmapData();
 
+  // Count student payment verification states for notification badges
+  const studentPendingCount = enrollments.reduce((acc, enroll) => {
+    if (!enroll.paymentStatus) return acc;
+    const pendingMonths = Object.values(enroll.paymentStatus).filter(status => status === 'pending');
+    return acc + pendingMonths.length;
+  }, 0);
+
+  // Count enrolled batches with unpaid status for selectedMonth
+  const studentUnpaidCount = enrollments.filter(e => {
+    const status = e.paymentStatus?.[selectedMonth] || 'unpaid';
+    return status === 'unpaid';
+  }).length;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 pb-24 lg:pb-8 sm:px-6 lg:px-8">
       
@@ -260,7 +273,7 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
 
           <button
             onClick={() => setActiveTab('tuition')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+            className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-200 cursor-pointer relative ${
               activeTab === 'tuition'
                 ? 'bg-white text-[#0f865f] shadow-sm'
                 : 'text-white/80 hover:bg-white/10 hover:text-white'
@@ -268,6 +281,15 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
           >
             <span className="text-lg">💳</span>
             <span>বেতন</span>
+            {studentPendingCount > 0 ? (
+              <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black text-white ring-2 ring-[#0f865f] animate-pulse" title="পেমেন্ট ভেরিফিকেশন পেন্ডিং">
+                ⏳
+              </span>
+            ) : studentUnpaidCount > 0 ? (
+              <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white ring-2 ring-[#0f865f]" title="বেতন বকেয়া রয়েছে">
+                ৳
+              </span>
+            ) : null}
           </button>
         </div>,
         portalNode
@@ -745,11 +767,20 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
 
             <button
               onClick={() => setActiveTab('tuition')}
-              className={`flex flex-col items-center space-y-0.5 py-0.5 px-2 rounded-xl transition-all duration-100 transform active:scale-90 cursor-pointer ${
+              className={`flex flex-col items-center space-y-0.5 py-0.5 px-2 rounded-xl transition-all duration-100 transform active:scale-90 cursor-pointer relative ${
                 activeTab === 'tuition' ? 'text-teal-600 font-bold scale-105' : 'text-gray-500'
               }`}
             >
               <span className={`text-base drop-shadow-sm transition-all duration-150 ${activeTab === 'tuition' ? 'opacity-100' : 'opacity-60 grayscale'}`}>💳</span>
+              {studentPendingCount > 0 ? (
+                <span className="absolute top-0.5 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[8px] font-black text-white ring-2 ring-white animate-pulse">
+                  ⏳
+                </span>
+              ) : studentUnpaidCount > 0 ? (
+                <span className="absolute top-0.5 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-black text-white ring-2 ring-white">
+                  ৳
+                </span>
+              ) : null}
               <span className="text-[9px] font-bold font-sans mt-0.5 tracking-wide">বেতন</span>
             </button>
           </div>

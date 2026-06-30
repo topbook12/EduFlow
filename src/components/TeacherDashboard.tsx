@@ -50,6 +50,7 @@ import {
 import { AppUser, Batch, Enrollment, StudyMaterial, Notice, BatchSchedule, ExtraCharge, Attendance } from '../types';
 import { generateTeacherReport } from '../utils/reportGenerator';
 import { TeacherPerformanceView } from './TeacherPerformanceView';
+import { motion } from 'motion/react';
 
 interface TeacherDashboardProps {
   user: AppUser;
@@ -2018,27 +2019,56 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                     { name: 'Unpaid (বকেয়া)', count: unpaidCount, color: '#ef4444' }
                   ];
 
+                  const containerVariants = {
+                    hidden: { opacity: 0 },
+                    show: {
+                      opacity: 1,
+                      transition: {
+                        staggerChildren: 0.08
+                      }
+                    }
+                  };
+
+                  const cardVariants = {
+                    hidden: { opacity: 0, y: 15, scale: 0.97 },
+                    show: { 
+                      opacity: 1, 
+                      y: 0, 
+                      scale: 1,
+                      transition: { 
+                        type: 'spring', 
+                        stiffness: 120, 
+                        damping: 14 
+                      } 
+                    }
+                  };
+
                   return (
                     <div className="space-y-5">
                       {/* 4 Summary Cards */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-teal-50/20 p-4 rounded-3xl border border-teal-100/50">
-                        <div className="bg-white p-3.5 rounded-2xl border border-teal-100/30 shadow-sm">
+                      <motion.div 
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="show"
+                        className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-teal-50/20 p-4 rounded-3xl border border-teal-100/50"
+                      >
+                        <motion.div variants={cardVariants} className="bg-white p-3.5 rounded-2xl border border-teal-100/30 shadow-sm hover:shadow transition-shadow">
                           <span className="block text-[10px] sm:text-xs font-bold text-gray-400 uppercase">মোট শিক্ষার্থী</span>
                           <span className="text-base sm:text-lg font-extrabold text-teal-900">{activeRoster.length} জন</span>
-                        </div>
-                        <div className="bg-white p-3.5 rounded-2xl border border-teal-100/30 shadow-sm">
+                        </motion.div>
+                        <motion.div variants={cardVariants} className="bg-white p-3.5 rounded-2xl border border-teal-100/30 shadow-sm hover:shadow transition-shadow">
                           <span className="block text-[10px] sm:text-xs font-bold text-gray-400 uppercase">মোট পরিশোধ্য ({paymentFilterMonth})</span>
                           <span className="text-base sm:text-lg font-extrabold text-teal-900">৳{totalExpected}</span>
-                        </div>
-                        <div className="bg-white p-3.5 rounded-2xl border border-teal-100/30 shadow-sm">
+                        </motion.div>
+                        <motion.div variants={cardVariants} className="bg-white p-3.5 rounded-2xl border border-teal-100/30 shadow-sm hover:shadow transition-shadow">
                           <span className="block text-[10px] sm:text-xs font-bold text-emerald-600 uppercase">সংগৃহীত বেতন (Collected)</span>
                           <span className="text-base sm:text-lg font-extrabold text-emerald-700">৳{totalCollected}</span>
-                        </div>
-                        <div className="bg-white p-3.5 rounded-2xl border border-teal-100/30 shadow-sm">
+                        </motion.div>
+                        <motion.div variants={cardVariants} className="bg-white p-3.5 rounded-2xl border border-teal-100/30 shadow-sm hover:shadow transition-shadow">
                           <span className="block text-[10px] sm:text-xs font-bold text-red-500 uppercase">বকেয়া বেতন (Dues/Baki)</span>
                           <span className="text-base sm:text-lg font-extrabold text-red-600">৳{totalDues}</span>
-                        </div>
-                      </div>
+                        </motion.div>
+                      </motion.div>
 
                       {/* Visual Dashboard Graphs */}
                       {activeRoster.length > 0 && (
@@ -2144,8 +2174,36 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                   
                   if (pendingApprovalList.length === 0) return null;
 
+                  const queueContainerVariants = {
+                    hidden: { opacity: 0 },
+                    show: {
+                      opacity: 1,
+                      transition: {
+                        staggerChildren: 0.08
+                      }
+                    }
+                  };
+
+                  const queueItemVariants = {
+                    hidden: { opacity: 0, scale: 0.97, y: 10 },
+                    show: { 
+                      opacity: 1, 
+                      scale: 1, 
+                      y: 0, 
+                      transition: { 
+                        type: 'spring', 
+                        stiffness: 110, 
+                        damping: 13 
+                      } 
+                    }
+                  };
+
                   return (
-                    <div className="bg-gradient-to-br from-amber-50 to-orange-50/50 border border-amber-200 rounded-3xl p-5 shadow-sm space-y-4">
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-gradient-to-br from-amber-50 to-orange-50/50 border border-amber-200 rounded-3xl p-5 shadow-sm space-y-4"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-500 text-white animate-bounce text-xs">
@@ -2161,7 +2219,12 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <motion.div 
+                        variants={queueContainerVariants}
+                        initial="hidden"
+                        animate="show"
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                      >
                         {pendingApprovalList.map((student) => {
                           const latestTx = student.paymentHistory
                             ?.filter(t => t.month === paymentFilterMonth)
@@ -2180,7 +2243,11 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                           const due = Math.max(0, netPayable - paid);
 
                           return (
-                            <div key={`pending-q-${student.id}`} className="bg-white border border-amber-100 rounded-2xl p-4 shadow-sm space-y-3 hover:shadow transition-all">
+                            <motion.div 
+                              variants={queueItemVariants}
+                              key={`pending-q-${student.id}`} 
+                              className="bg-white border border-amber-100 rounded-2xl p-4 shadow-sm space-y-3 hover:shadow transition-all"
+                            >
                               <div className="flex justify-between items-start">
                                 <div>
                                   <h4 className="font-bold text-sm text-slate-900">{student.studentName}</h4>
@@ -2237,11 +2304,11 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                                   </button>
                                 )}
                               </div>
-                            </div>
+                            </motion.div>
                           );
                         })}
-                      </div>
-                    </div>
+                      </motion.div>
+                    </motion.div>
                   );
                 })()}
 

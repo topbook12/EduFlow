@@ -25,6 +25,7 @@ import {
   subscribeToMaterials
 } from '../dbUtils';
 import { AppUser, Batch, Enrollment, StudyMaterial, Notice, DailyRoadmapItem } from '../types';
+import { WeeklyCalendarView } from './WeeklyCalendarView';
 
 interface StudentDashboardProps {
   user: AppUser;
@@ -298,144 +299,107 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
       <div className="space-y-8 min-w-0">
           
           {/* Section 1: Dynamic Weekly Roadmap & Join Batch (Shows on 'roadmap' tab) */}
-          {activeTab === 'roadmap' && (
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-              <div className="xl:col-span-8 space-y-8">
-                <div className="rounded-3xl border border-teal-100 bg-white p-6 sm:p-8 shadow-xl shadow-gray-200/40 animate-fade-in relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/5 rounded-full blur-2xl"></div>
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
-                <div className="flex items-center space-x-3.5">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 border border-teal-150 text-teal-700 shadow-inner">
-                    <Calendar className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h2 className="font-display text-xl font-black text-gray-950">ব্যক্তিগত ক্লাস রোডম্যাপ (Batch Roadmap) ⚡</h2>
-                    <p className="text-xs sm:text-sm font-bold text-gray-500">আপনার সকল ব্যাচের সমন্বয় করা সাপ্তাহিক ক্লাসের সময়সূচী</p>
-                  </div>
-                </div>
-              </div>
+          {activeTab === 'roadmap' && (() => {
+            const studentSchedules: any[] = [];
+            enrolledBatches.forEach((batch, bIdx) => {
+              if (batch.schedule && Array.isArray(batch.schedule)) {
+                batch.schedule.forEach(sched => {
+                  studentSchedules.push({
+                    day: sched.day,
+                    time: sched.time,
+                    batchId: batch.id,
+                    batchName: batch.name,
+                    subject: batch.subject,
+                    code: batch.code,
+                    teacherName: batch.teacherName,
+                    accentIndex: bIdx,
+                  });
+                });
+              }
+            });
 
-              {enrolledBatches.length === 0 ? (
-                <div className="rounded-3xl bg-gray-50/50 border border-dashed border-gray-250 py-14 px-6 text-center">
-                  <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400 mb-4 shadow-inner">
-                    <Calendar className="h-7 w-7" />
-                  </div>
-                  <h4 className="text-base font-extrabold text-gray-800">কোনো রোডম্যাপ পাওয়া যায়নি</h4>
-                  <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto mt-1.5 font-medium leading-relaxed">
-                    আপনি এখনো কোনো কোচিং ব্যাচে যুক্ত হননি। পাশে শিক্ষক থেকে পাওয়া "Batch Code" দিয়ে ব্যাচে যোগ দিন।
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-                  {DAYS_OF_WEEK.map((dayName, idx) => {
-                    const dayClasses = roadmapItems.filter(item => item.day === dayName);
-                    const isToday = dayName === todayName;
-
-                    return (
-                      <div 
-                        key={dayName} 
-                        className={`rounded-2xl p-4 border-2 transition-all duration-300 relative ${
-                          isToday 
-                            ? 'border-teal-500 bg-gradient-to-b from-teal-50/40 to-teal-50/10 ring-4 ring-teal-500/5 shadow-md shadow-teal-500/5' 
-                            : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-md'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <span className={`text-xs sm:text-sm font-black tracking-wider uppercase ${isToday ? 'text-teal-950 bg-teal-500/20 px-2 py-0.5 rounded-md border border-teal-500/30' : 'text-gray-400'}`}>
-                            {dayName.substring(0, 3)}
-                          </span>
-                          {isToday && (
-                            <span className="flex h-3 w-3 relative">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-3 w-3 bg-teal-600 animate-pulse"></span>
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="space-y-3">
-                          {dayClasses.length === 0 ? (
-                            <p className="text-xs text-gray-300 italic py-1 font-semibold">No class</p>
-                          ) : (
-                            dayClasses.map((item, index) => (
-                              <div 
-                                key={index} 
-                                className="rounded-2xl bg-white border-2 border-gray-100 p-3 shadow-sm relative group hover:border-teal-500 hover:scale-[1.03] hover:shadow-md transition-all duration-200 active:scale-95 cursor-pointer"
-                              >
-                                <p className="text-xs font-black text-teal-700 truncate">{item.subject}</p>
-                                <p className="text-[11px] text-gray-950 font-black truncate mt-1 leading-none">{item.batchName}</p>
-                                <div className="flex items-center space-x-1 mt-2 text-xs text-gray-500 border-t border-gray-50 pt-1.5">
-                                  <Clock className="h-3 w-3 shrink-0 text-teal-600" />
-                                  <span className="font-extrabold text-gray-700">{item.time}</span>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
+            return (
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                <div className="xl:col-span-8 space-y-8">
+                  {enrolledBatches.length === 0 ? (
+                    <div className="rounded-3xl border border-teal-100 bg-white p-6 sm:p-8 shadow-xl shadow-gray-200/40 relative overflow-hidden text-center py-14">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/5 rounded-full blur-2xl"></div>
+                      <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400 mb-4 shadow-inner">
+                        <Calendar className="h-7 w-7" />
                       </div>
-                    );
-                  })}
+                      <h4 className="text-base font-extrabold text-gray-800">কোনো রোডম্যাপ পাওয়া যায়নি</h4>
+                      <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto mt-1.5 font-medium leading-relaxed">
+                        আপনি এখনো কোনো কোচিং ব্যাচে যুক্ত হননি। পাশে শিক্ষক থেকে পাওয়া "Batch Code" দিয়ে ব্যাচে যোগ দিন।
+                      </p>
+                    </div>
+                  ) : (
+                    <WeeklyCalendarView 
+                      items={studentSchedules} 
+                      userRole="student" 
+                      batchesList={enrolledBatches} 
+                      user={user}
+                    />
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-          <div className="xl:col-span-4 space-y-8">
-                {/* Module A: Join Batch Card */}
-                <div className="rounded-3xl border-2 border-teal-500/20 bg-gradient-to-b from-teal-50/30 to-white p-6 sm:p-8 shadow-xl shadow-teal-900/5 relative overflow-hidden">
-                  <div className="absolute -top-10 -right-10 w-24 h-24 bg-teal-500/10 rounded-full blur-xl"></div>
-                  <h3 className="font-display text-xl font-black text-gray-950 mb-2">কোচিং ব্যাচে যোগ দিন ✨</h3>
-                  <p className="text-xs sm:text-sm text-gray-600 mb-5 font-semibold leading-relaxed">
-                    আপনার শিক্ষক থেকে প্রাপ্ত ৬ ডিজিটের ইনভাইট কোডটি ব্যবহার করে ব্যাচে এনরোল করুন।
-                  </p>
+                <div className="xl:col-span-4 space-y-8">
+                  {/* Module A: Join Batch Card */}
+                  <div className="rounded-3xl border-2 border-teal-500/20 bg-gradient-to-b from-teal-50/30 to-white p-6 sm:p-8 shadow-xl shadow-teal-900/5 relative overflow-hidden">
+                    <div className="absolute -top-10 -right-10 w-24 h-24 bg-teal-500/10 rounded-full blur-xl"></div>
+                    <h3 className="font-display text-xl font-black text-gray-950 mb-2">কোচিং ব্যাচে যোগ দিন ✨</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-5 font-semibold leading-relaxed">
+                      আপনার শিক্ষক থেকে প্রাপ্ত ৬ ডিজিটের ইনভাইট কোডটি ব্যবহার করে ব্যাচে এনরোল করুন।
+                    </p>
 
-                  {enrollMessage && (
-                    <div className={`flex items-start space-x-2.5 text-xs sm:text-sm rounded-2xl p-4 mb-5 border-2 ${
-                      enrollMessage.type === 'success' 
-                        ? 'bg-emerald-50 text-emerald-900 border-emerald-200' 
-                        : 'bg-red-50 text-red-900 border-red-200'
-                    }`}>
-                      {enrollMessage.type === 'success' ? (
-                        <CheckCircle className="h-5 w-5 shrink-0 mt-0.5 text-emerald-600" />
-                      ) : (
-                        <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5 text-red-600" />
-                      )}
-                      <span className="font-bold leading-relaxed">{enrollMessage.text}</span>
-                    </div>
-                  )}
+                    {enrollMessage && (
+                      <div className={`flex items-start space-x-2.5 text-xs sm:text-sm rounded-2xl p-4 mb-5 border-2 ${
+                        enrollMessage.type === 'success' 
+                          ? 'bg-emerald-50 text-emerald-900 border-emerald-200' 
+                          : 'bg-red-50 text-red-900 border-red-200'
+                      }`}>
+                        {enrollMessage.type === 'success' ? (
+                          <CheckCircle className="h-5 w-5 shrink-0 mt-0.5 text-emerald-600" />
+                        ) : (
+                          <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5 text-red-600" />
+                        )}
+                        <span className="font-bold leading-relaxed">{enrollMessage.text}</span>
+                      </div>
+                    )}
 
-                  <form onSubmit={handleJoinBatch} className="space-y-4">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        required
-                        value={inviteCode}
-                        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                        placeholder="MATH-ADV-10"
-                        className="w-full uppercase px-4 py-4 text-center text-lg font-black tracking-widest border-2 border-teal-150 rounded-2xl focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 bg-white placeholder-gray-300 shadow-inner animate-pulse-subtle"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={joining}
-                      className="shimmer-btn w-full flex items-center justify-center space-x-2.5 py-4 px-5 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-2xl text-sm sm:text-base shadow-lg shadow-teal-600/10 transition-all duration-150 transform active:scale-[0.98] cursor-pointer"
-                    >
-                      <span className="font-black">{joining ? 'যোগদান চলছে...' : 'ব্যাচে যোগ দিন'}</span>
-                      <Plus className="h-5 w-5" />
-                    </button>
-                  </form>
+                    <form onSubmit={handleJoinBatch} className="space-y-4">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          value={inviteCode}
+                          onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                          placeholder="MATH-ADV-10"
+                          className="w-full uppercase px-4 py-4 text-center text-lg font-black tracking-widest border-2 border-teal-150 rounded-2xl focus:outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 bg-white placeholder-gray-300 shadow-inner animate-pulse-subtle"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={joining}
+                        className="shimmer-btn w-full flex items-center justify-center space-x-2.5 py-4 px-5 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-2xl text-sm sm:text-base shadow-lg shadow-teal-600/10 transition-all duration-150 transform active:scale-[0.98] cursor-pointer"
+                      >
+                        <span className="font-black">{joining ? 'যোগদান চলছে...' : 'ব্যাচে যোগ দিন'}</span>
+                        <Plus className="h-5 w-5" />
+                      </button>
+                    </form>
 
-                  {enrolledBatches.length === 0 && (
-                    <div className="mt-5 bg-amber-50 rounded-2xl p-4 border-2 border-amber-100 text-xs sm:text-sm text-amber-900 flex items-start space-x-2.5 font-semibold leading-relaxed">
-                      <Info className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
-                      <span>
-                        ডেমো টেস্ট করতে ইনভাইট কোড ব্যবহার করুন: <br />
-                        <strong className="text-teal-950 bg-teal-500/20 border border-teal-500/30 px-2 py-0.5 rounded-lg select-all font-mono">MATH-ADV-10</strong> (ম্যাথ ব্যাচ)
-                      </span>
-                    </div>
-                  )}
+                    {enrolledBatches.length === 0 && (
+                      <div className="mt-5 bg-amber-50 rounded-2xl p-4 border-2 border-amber-100 text-xs sm:text-sm text-amber-900 flex items-start space-x-2.5 font-semibold leading-relaxed">
+                        <Info className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+                        <span>
+                          ডেমো টেস্ট করতে ইনভাইট কোড ব্যবহার করুন: <br />
+                          <strong className="text-teal-950 bg-teal-500/20 border border-teal-500/30 px-2 py-0.5 rounded-lg select-all font-mono">MATH-ADV-10</strong> (ম্যাথ ব্যাচ)
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Section 2: Notice Board (With special highlight on schedule changes) */}
           {activeTab === 'notices' && (

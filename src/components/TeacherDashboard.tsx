@@ -22,7 +22,8 @@ import {
   Search,
   Check,
   LayoutGrid,
-  List
+  List,
+  CalendarDays
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip as ChartTooltip, Legend, LineChart, Line, AreaChart, Area, CartesianGrid } from 'recharts';
 import { 
@@ -51,6 +52,7 @@ import { AppUser, Batch, Enrollment, StudyMaterial, Notice, BatchSchedule, Extra
 import { generateTeacherReport } from '../utils/reportGenerator';
 import { TeacherPerformanceView } from './TeacherPerformanceView';
 import { motion } from 'motion/react';
+import { WeeklyCalendarView } from './WeeklyCalendarView';
 
 interface TeacherDashboardProps {
   user: AppUser;
@@ -175,7 +177,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'batches' | 'broadcast' | 'materials' | 'students' | 'performance'>('batches');
-  const [scheduleViewMode, setScheduleViewMode] = useState<'cards' | 'list'>('cards');
+  const [scheduleViewMode, setScheduleViewMode] = useState<'calendar' | 'cards' | 'list'>('calendar');
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const [showCreateBatch, setShowCreateBatch] = useState(false);
   const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
@@ -1082,6 +1084,18 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                 <div className="flex items-center bg-gray-100/50 p-1 rounded-xl">
                   <button 
                     type="button"
+                    onClick={() => setScheduleViewMode('calendar')}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer ${
+                      scheduleViewMode === 'calendar' 
+                        ? 'bg-teal-600 text-white shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    <span>ক্যালেন্ডার ছক</span>
+                  </button>
+                  <button 
+                    type="button"
                     onClick={() => setScheduleViewMode('cards')}
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer ${
                       scheduleViewMode === 'cards' 
@@ -1129,162 +1143,183 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
               )}
 
               {/* Weekly Day Sections */}
-              <div className="space-y-6">
-                {DAYS_OF_WEEK.map(dayName => {
-                  const dayClasses = combinedSchedules.filter(item => item.day === dayName);
-                  if (dayClasses.length === 0) return null;
-                  
-                  return (
-                    <div key={dayName} className="space-y-3">
-                      {/* Day Title Row */}
-                      <div className="flex items-center justify-between bg-white border border-gray-150 rounded-xl px-4 py-3 shadow-sm">
-                        <div className="flex items-center space-x-2">
-                          <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
-                          <h4 className="font-display font-bold text-gray-900">{BENGALI_DAYS[dayName]}</h4>
+              {scheduleViewMode === 'calendar' ? (
+                <div className="space-y-6">
+                  <WeeklyCalendarView 
+                    items={combinedSchedules.map(cl => ({
+                      day: cl.day,
+                      time: cl.time,
+                      batchId: cl.batchId,
+                      batchName: cl.batchName,
+                      subject: cl.subject,
+                      code: cl.code,
+                      accentIndex: cl.accentIndex,
+                      teacherName: user.name
+                    }))}
+                    userRole="teacher"
+                    onQuickReschedule={handleQuickReschedule}
+                    batchesList={batches}
+                    user={user}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {DAYS_OF_WEEK.map(dayName => {
+                    const dayClasses = combinedSchedules.filter(item => item.day === dayName);
+                    if (dayClasses.length === 0) return null;
+                    
+                    return (
+                      <div key={dayName} className="space-y-3">
+                        {/* Day Title Row */}
+                        <div className="flex items-center justify-between bg-white border border-gray-150 rounded-xl px-4 py-3 shadow-sm">
+                          <div className="flex items-center space-x-2">
+                            <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                            <h4 className="font-display font-bold text-gray-900">{BENGALI_DAYS[dayName]}</h4>
+                          </div>
+                          <span className="text-xs font-medium text-gray-500">{dayClasses.length} ক্লাস</span>
                         </div>
-                        <span className="text-xs font-medium text-gray-500">{dayClasses.length} ক্লাস</span>
+                        
+                        {scheduleViewMode === 'cards' ? (
+                          /* Classes Grid - Cards View */
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pl-0 sm:pl-4">
+                            {dayClasses.map((cl, clIdx) => {
+                              const colors = [
+                                'border-t-orange-500', 'border-t-teal-500', 
+                                'border-t-violet-500', 'border-t-amber-500', 
+                                'border-t-rose-500', 'border-t-sky-500'
+                              ];
+                              const badgeBgColors = [
+                                'bg-orange-500', 'bg-teal-500', 
+                                'bg-violet-500', 'bg-amber-500', 
+                                'bg-rose-500', 'bg-sky-500'
+                              ];
+                              const colorClass = colors[cl.accentIndex % colors.length];
+                              const badgeClass = badgeBgColors[cl.accentIndex % badgeBgColors.length];
+
+                              return (
+                                <div 
+                                  key={clIdx}
+                                  className={`bg-white rounded-xl shadow-sm border border-gray-150 border-t-4 ${colorClass} p-4 flex flex-col justify-between group transition-all duration-200 hover:shadow-md hover:-translate-y-0.5`}
+                                >
+                                  <div>
+                                    <div className="flex items-center space-x-2 mb-3">
+                                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold text-white ${badgeClass} uppercase tracking-wider`}>
+                                        {cl.code}
+                                      </span>
+                                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide truncate max-w-[150px]">
+                                        {cl.subject}
+                                      </span>
+                                    </div>
+                                    <h5 className="font-display font-bold text-sm text-gray-900 mb-4 leading-tight">
+                                      {cl.batchName}
+                                    </h5>
+                                    
+                                    <div className="space-y-2">
+                                      <div className="flex items-center space-x-2 text-gray-600">
+                                        <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                        <span className="text-[11px] font-medium font-sans">
+                                          {formatTimeTo12Hour(cl.time)}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center space-x-2 text-gray-600">
+                                        <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                        <span className="text-[11px] font-medium truncate">
+                                          {user.name}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuickReschedule(cl.batchId)}
+                                      className="flex items-center space-x-1 text-[10px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-2 py-1 rounded cursor-pointer"
+                                    >
+                                      <Edit className="w-3 h-3" />
+                                      <span>পরিবর্তন করুন</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          /* Classes Grid - List View */
+                          <div className="space-y-2.5 pl-0 sm:pl-4">
+                            {dayClasses.map((cl, clIdx) => {
+                              const borderColors = [
+                                'border-l-orange-500', 'border-l-teal-500', 
+                                'border-l-violet-500', 'border-l-amber-500', 
+                                'border-l-rose-500', 'border-l-sky-500'
+                              ];
+                              const badgeBgColors = [
+                                'bg-orange-500', 'bg-teal-500', 
+                                'bg-violet-500', 'bg-amber-500', 
+                                'bg-rose-500', 'bg-sky-500'
+                              ];
+                              const borderClass = borderColors[cl.accentIndex % borderColors.length];
+                              const badgeClass = badgeBgColors[cl.accentIndex % badgeBgColors.length];
+
+                              return (
+                                <div 
+                                  key={clIdx}
+                                  className={`bg-white rounded-xl shadow-sm border border-gray-150 border-l-4 ${borderClass} p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group transition-all duration-150 hover:bg-gray-50/75`}
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                                    {/* Code and Subject badges */}
+                                    <div className="flex items-center space-x-2 shrink-0">
+                                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold text-white ${badgeClass} uppercase tracking-wider`}>
+                                        {cl.code}
+                                      </span>
+                                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+                                        {cl.subject}
+                                      </span>
+                                    </div>
+                                    
+                                    {/* Batch name */}
+                                    <h5 className="font-display font-bold text-sm text-gray-900 truncate">
+                                      {cl.batchName}
+                                    </h5>
+                                  </div>
+
+                                  <div className="flex items-center justify-between sm:justify-end gap-5 shrink-0">
+                                    {/* Time and Teacher */}
+                                    <div className="flex items-center space-x-4">
+                                      <div className="flex items-center space-x-1.5 text-gray-600">
+                                        <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                        <span className="text-xs font-bold text-gray-700 font-sans">
+                                          {formatTimeTo12Hour(cl.time)}
+                                        </span>
+                                      </div>
+                                      <div className="hidden min-[450px]:flex items-center space-x-1.5 text-gray-600">
+                                        <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                        <span className="text-xs font-medium text-gray-500 max-w-[80px] truncate">
+                                          {user.name.split(' ')[0]}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Edit button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuickReschedule(cl.batchId)}
+                                      className="flex items-center space-x-1 text-[10px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <Edit className="w-3 h-3" />
+                                      <span className="hidden sm:inline">পরিবর্তন করুন</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                      
-                      {scheduleViewMode === 'cards' ? (
-                        /* Classes Grid - Cards View */
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pl-0 sm:pl-4">
-                          {dayClasses.map((cl, clIdx) => {
-                            const colors = [
-                              'border-t-orange-500', 'border-t-teal-500', 
-                              'border-t-violet-500', 'border-t-amber-500', 
-                              'border-t-rose-500', 'border-t-sky-500'
-                            ];
-                            const badgeBgColors = [
-                              'bg-orange-500', 'bg-teal-500', 
-                              'bg-violet-500', 'bg-amber-500', 
-                              'bg-rose-500', 'bg-sky-500'
-                            ];
-                            const colorClass = colors[cl.accentIndex % colors.length];
-                            const badgeClass = badgeBgColors[cl.accentIndex % badgeBgColors.length];
-
-                            return (
-                              <div 
-                                key={clIdx}
-                                className={`bg-white rounded-xl shadow-sm border border-gray-150 border-t-4 ${colorClass} p-4 flex flex-col justify-between group transition-all duration-200 hover:shadow-md hover:-translate-y-0.5`}
-                              >
-                                <div>
-                                  <div className="flex items-center space-x-2 mb-3">
-                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold text-white ${badgeClass} uppercase tracking-wider`}>
-                                      {cl.code}
-                                    </span>
-                                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide truncate max-w-[150px]">
-                                      {cl.subject}
-                                    </span>
-                                  </div>
-                                  <h5 className="font-display font-bold text-sm text-gray-900 mb-4 leading-tight">
-                                    {cl.batchName}
-                                  </h5>
-                                  
-                                  <div className="space-y-2">
-                                    <div className="flex items-center space-x-2 text-gray-600">
-                                      <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                      <span className="text-[11px] font-medium font-sans">
-                                        {formatTimeTo12Hour(cl.time)}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center space-x-2 text-gray-600">
-                                      <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                      <span className="text-[11px] font-medium truncate">
-                                        {user.name}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuickReschedule(cl.batchId)}
-                                    className="flex items-center space-x-1 text-[10px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-2 py-1 rounded cursor-pointer"
-                                  >
-                                    <Edit className="w-3 h-3" />
-                                    <span>পরিবর্তন করুন</span>
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        /* Classes Grid - List View */
-                        <div className="space-y-2.5 pl-0 sm:pl-4">
-                          {dayClasses.map((cl, clIdx) => {
-                            const borderColors = [
-                              'border-l-orange-500', 'border-l-teal-500', 
-                              'border-l-violet-500', 'border-l-amber-500', 
-                              'border-l-rose-500', 'border-l-sky-500'
-                            ];
-                            const badgeBgColors = [
-                              'bg-orange-500', 'bg-teal-500', 
-                              'bg-violet-500', 'bg-amber-500', 
-                              'bg-rose-500', 'bg-sky-500'
-                            ];
-                            const borderClass = borderColors[cl.accentIndex % borderColors.length];
-                            const badgeClass = badgeBgColors[cl.accentIndex % badgeBgColors.length];
-
-                            return (
-                              <div 
-                                key={clIdx}
-                                className={`bg-white rounded-xl shadow-sm border border-gray-150 border-l-4 ${borderClass} p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group transition-all duration-150 hover:bg-gray-50/75`}
-                              >
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 flex-1 min-w-0">
-                                  {/* Code and Subject badges */}
-                                  <div className="flex items-center space-x-2 shrink-0">
-                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold text-white ${badgeClass} uppercase tracking-wider`}>
-                                      {cl.code}
-                                    </span>
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
-                                      {cl.subject}
-                                    </span>
-                                  </div>
-                                  
-                                  {/* Batch name */}
-                                  <h5 className="font-display font-bold text-sm text-gray-900 truncate">
-                                    {cl.batchName}
-                                  </h5>
-                                </div>
-
-                                <div className="flex items-center justify-between sm:justify-end gap-5 shrink-0">
-                                  {/* Time and Teacher */}
-                                  <div className="flex items-center space-x-4">
-                                    <div className="flex items-center space-x-1.5 text-gray-600">
-                                      <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                      <span className="text-xs font-bold text-gray-700 font-sans">
-                                        {formatTimeTo12Hour(cl.time)}
-                                      </span>
-                                    </div>
-                                    <div className="hidden min-[450px]:flex items-center space-x-1.5 text-gray-600">
-                                      <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                      <span className="text-xs font-medium text-gray-500 max-w-[80px] truncate">
-                                        {user.name.split(' ')[0]}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* Edit button */}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuickReschedule(cl.batchId)}
-                                    className="flex items-center space-x-1 text-[10px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                                  >
-                                    <Edit className="w-3 h-3" />
-                                    <span className="hidden sm:inline">পরিবর্তন করুন</span>
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Suggested Free Slots Assistant */}
               <div className="mt-8 bg-teal-50/30 border border-teal-100 rounded-2xl p-5 shadow-sm">

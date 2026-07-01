@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Award, TrendingUp, AlertTriangle, CheckCircle, BookOpen, Clock } from 'lucide-react';
 import { Batch, Exam, ExamResult, Enrollment } from '../types';
-import { subscribeToBatchExams, subscribeToExamResults } from '../dbUtils';
+import { subscribeToBatchExams, subscribeToBatchExamResults } from '../dbUtils';
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip as ChartTooltip, BarChart, Bar, Cell } from 'recharts';
 
 interface StudentExamPerformanceProps {
@@ -32,19 +32,24 @@ export const StudentExamPerformance: React.FC<StudentExamPerformanceProps> = ({ 
   }, [enrolledBatches]);
 
   useEffect(() => {
-    const examIds = exams.map(e => e.id);
-    if (examIds.length === 0) {
+    if (enrolledBatches.length === 0) {
       setResults([]);
       return;
     }
 
-    const unsub = subscribeToExamResults(examIds, (resList) => {
-      // Only keep this student's results
-      setResults(resList.filter(r => r.studentId === studentId));
+    const unsubscribes: (() => void)[] = [];
+    let allResults: ExamResult[] = [];
+
+    enrolledBatches.forEach(batch => {
+      const unsub = subscribeToBatchExamResults(batch.id, (batchResults) => {
+        allResults = [...allResults.filter(r => r.batchId !== batch.id), ...batchResults];
+        setResults(allResults.filter(r => r.studentId === studentId));
+      });
+      unsubscribes.push(unsub);
     });
 
-    return () => unsub();
-  }, [exams, studentId]);
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [enrolledBatches, studentId]);
 
   // Analytics Calculation
   const getSubjectPerformance = () => {

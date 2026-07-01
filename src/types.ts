@@ -122,6 +122,7 @@ export interface Exam {
 export interface ExamResult {
   id: string; // examId_studentId
   examId: string;
+  batchId: string;
   studentId: string;
   studentName: string;
   marksObtained: number;

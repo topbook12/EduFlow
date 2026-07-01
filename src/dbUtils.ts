@@ -1641,7 +1641,7 @@ export async function seedAttendanceIfEmpty(batchId: string, enrollments: Enroll
 /**
  * Create a new exam
  */
-export async function createExam(examData: Omit<Exam, 'id' | 'createdAt'>): Promise<string> {
+export async function createExam(examData: Omit<Exam, 'id' | 'createdAt'>, teacherId: string): Promise<string> {
   const examId = 'exam-' + Math.random().toString(36).substring(2);
   const newExam: Exam = {
     ...examData,
@@ -1658,7 +1658,7 @@ export async function createExam(examData: Omit<Exam, 'id' | 'createdAt'>): Prom
   await postNotice(
     examData.batchId,
     examData.batchName,
-    DEMO_TEACHER_UID,
+    teacherId,
     "EduFlow Exams",
     'exam_alert',
     `📝 নতুন পরীক্ষা যুক্ত করা হয়েছে: "${examData.title}" (${examData.subject})। তারিখ: ${examData.examDate}। মোট নম্বর: ${examData.totalMarks}।`
@@ -1678,6 +1678,7 @@ export async function createExam(examData: Omit<Exam, 'id' | 'createdAt'>): Prom
  */
 export async function saveStudentExamResult(
   examId: string,
+  batchId: string,
   studentId: string,
   studentName: string,
   marksObtained: number,
@@ -1690,6 +1691,7 @@ export async function saveStudentExamResult(
   const newRecord: ExamResult = {
     id: resultId,
     examId,
+    batchId,
     studentId,
     studentName,
     marksObtained,
@@ -1773,14 +1775,14 @@ export function subscribeToBatchExams(
 }
 
 /**
- * Subscribe to all exam results for a list of exams
+ * Subscribe to all exam results for a specific batch
  */
-export function subscribeToExamResults(
-  examIds: string[],
+export function subscribeToBatchExamResults(
+  batchId: string,
   callback: (records: ExamResult[]) => void
 ) {
   let unsubFirestore: (() => void) | null = null;
-  const filterFn = (r: ExamResult) => examIds.includes(r.examId);
+  const filterFn = (r: ExamResult) => r.batchId === batchId;
 
   const subId = Math.random().toString(36).substring(2);
   const localSub: Subscription = {
@@ -1790,10 +1792,10 @@ export function subscribeToExamResults(
     callback
   };
 
-  if (!isOfflineMode && examIds.length > 0) {
+  if (!isOfflineMode) {
     try {
       const colRef = collection(db, 'examResults');
-      const q = query(colRef, where('examId', 'in', examIds.slice(0, 30)));
+      const q = query(colRef, where('batchId', '==', batchId));
       unsubFirestore = onSnapshot(q, (snapshot) => {
         const list: ExamResult[] = [];
         snapshot.forEach(doc => {
@@ -1801,7 +1803,7 @@ export function subscribeToExamResults(
         });
 
         const localList = getLocalCollection<ExamResult>('examResults');
-        const otherItems = localList.filter(r => !examIds.includes(r.examId));
+        const otherItems = localList.filter(r => r.batchId !== batchId);
         setLocalCollection('examResults', [...otherItems, ...list]);
         callback(list);
       }, (err) => {
@@ -1877,6 +1879,7 @@ export async function seedExamsIfEmpty(batchId: string, enrollments: Enrollment[
       seededResults.push({
         id: `${examId}_${student.studentId}`,
         examId,
+        batchId,
         studentId: student.studentId,
         studentName: student.studentName,
         marksObtained: score,

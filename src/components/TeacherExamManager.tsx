@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Plus, Search, Check, AlertTriangle, Download, TrendingUp, Award, User, Clock, ChevronRight } from 'lucide-react';
 import { Batch, Exam, ExamResult, Enrollment } from '../types';
-import { subscribeToBatchExams, subscribeToExamResults, createExam, saveStudentExamResult } from '../dbUtils';
+import { subscribeToBatchExams, subscribeToBatchExamResults, createExam, saveStudentExamResult } from '../dbUtils';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as ChartTooltip, CartesianGrid, LineChart, Line, AreaChart, Area, Legend } from 'recharts';
 
 interface TeacherExamManagerProps {
@@ -47,18 +47,17 @@ export const TeacherExamManager: React.FC<TeacherExamManagerProps> = ({ teacherI
   }, [selectedBatchId]);
 
   useEffect(() => {
-    const examIds = exams.map(e => e.id);
-    if (examIds.length === 0) {
+    if (!selectedBatchId) {
       setExamResults([]);
       return;
     }
 
-    const unsubResults = subscribeToExamResults(examIds, (resultList) => {
+    const unsubResults = subscribeToBatchExamResults(selectedBatchId, (resultList) => {
       setExamResults(resultList);
     });
 
     return () => unsubResults();
-  }, [exams]);
+  }, [selectedBatchId]);
 
   const activeBatch = batches.find(b => b.id === selectedBatchId);
   const batchStudents = enrollments.filter(e => e.batchId === selectedBatchId && e.status === 'active');
@@ -74,7 +73,7 @@ export const TeacherExamManager: React.FC<TeacherExamManagerProps> = ({ teacherI
       title: newTitle,
       totalMarks: newMarks,
       examDate: newDate
-    });
+    }, teacherId);
 
     setShowCreateModal(false);
     setNewTitle('');
@@ -100,11 +99,11 @@ export const TeacherExamManager: React.FC<TeacherExamManagerProps> = ({ teacherI
   };
 
   const handleSaveMarks = async (studentId: string, studentName: string) => {
-    if (!activeExamId) return;
+    if (!activeExam) return;
     const marks = marksInput[studentId] || 0;
     const remarks = remarksInput[studentId] || '';
     
-    await saveStudentExamResult(activeExamId, studentId, studentName, marks, remarks);
+    await saveStudentExamResult(activeExam.id, activeExam.batchId, studentId, studentName, marks, remarks);
     // show small toast if needed, but reactiveness will handle UI
   };
 

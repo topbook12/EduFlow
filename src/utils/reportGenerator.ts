@@ -2,6 +2,12 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Batch, Enrollment } from '../types';
 
+export interface ScheduleData {
+  userName: string;
+  role: string;
+  batches: Batch[];
+}
+
 // Helper to format 24-hour time to 12-hour AM/PM format
 const formatTimeTo12Hour = (timeStr: string): string => {
   if (!timeStr) return '';

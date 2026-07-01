@@ -458,7 +458,7 @@ export const WeeklyCalendarView: React.FC<WeeklyCalendarViewProps> = ({
             title="রুটিন ডাউনলোড করুন (PDF)"
           >
             <FileText className="w-4 h-4" />
-            <span className="hidden sm:inline">রুটিন (PDF)</span>
+            <span>রুটিন (PDF)</span>
           </button>
           <div className="bg-slate-50 border border-slate-100 p-1.5 rounded-xl">
             <span className="text-xs font-black text-slate-700 px-3">

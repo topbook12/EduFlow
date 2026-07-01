@@ -33,6 +33,155 @@ interface ReportData {
   selectedMonth: string;
 }
 
+export interface ScheduleData {
+  userName: string;
+  role: 'teacher' | 'student';
+  batches: Batch[];
+}
+
+export const generateWeeklySchedulePDF = (data: ScheduleData) => {
+  const { userName, role, batches } = data;
+
+  // Initialize jsPDF (A4 Landscape, measurement in mm)
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+
+  // Define color palette
+  const primaryColor = [15, 134, 95]; // Teal #0f865f
+  const secondaryColor = [12, 107, 76]; // Darker Teal
+  const textColor = [51, 65, 85]; // Slate-700
+  const borderColor = [226, 232, 240]; // Slate-200
+
+  // Draw Header
+  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.rect(0, 0, pageWidth, 12, 'F');
+
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('EDUFLOW', 14, 28);
+
+  doc.setFontSize(10);
+  doc.setFont('Helvetica', 'normal');
+  doc.setTextColor(100, 116, 139); // Slate-500
+  doc.text('PREMIUM ACADEMIC MANAGEMENT COMPANION', 14, 33);
+
+  // Right-aligned Metadata Info
+  doc.setFontSize(12);
+  doc.setFont('Helvetica', 'bold');
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.text('WEEKLY CLASS ROUTINE', pageWidth - 14, 26, { align: 'right' });
+  
+  doc.setFontSize(10);
+  doc.setFont('Helvetica', 'normal');
+  doc.text(`Generated For: ${userName} (${role === 'teacher' ? 'Teacher' : 'Student'})`, pageWidth - 14, 32, { align: 'right' });
+  doc.text(`Generated On: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth - 14, 37, { align: 'right' });
+
+  // Decorative Line Separator
+  doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+  doc.setLineWidth(0.5);
+  doc.line(14, 42, pageWidth - 14, 42);
+
+  // Group schedules by day
+  const dailySchedules: { [day: string]: any[] } = {};
+  batches.forEach(b => {
+    b.schedule?.forEach(s => {
+      if (!dailySchedules[s.day]) {
+        dailySchedules[s.day] = [];
+      }
+      dailySchedules[s.day].push({
+        time: s.time,
+        batchName: b.name,
+        subject: b.subject,
+        code: b.code,
+        teacher: b.teacherName
+      });
+    });
+  });
+
+  const orderedDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const calendarRows: any[] = [];
+
+  let isAlternate = false;
+
+  orderedDays.forEach(day => {
+    const classes = dailySchedules[day] || [];
+    if (classes.length === 0) return;
+
+    // Sort classes by time
+    classes.sort((a, b) => a.time.localeCompare(b.time));
+
+    classes.forEach((cl, idx) => {
+      calendarRows.push([
+        idx === 0 ? `${day}\n(${BENGALI_DAYS[day] || ''})` : '',
+        formatTimeTo12Hour(cl.time),
+        cl.subject || 'N/A',
+        `${cl.batchName} (${cl.code || 'N/A'})`,
+        cl.teacher || 'N/A'
+      ]);
+    });
+  });
+
+  // Table
+  autoTable(doc, {
+    startY: 50,
+    head: [['Day', 'Time', 'Subject', 'Batch Name & Code', 'Instructor']],
+    body: calendarRows.length > 0 ? calendarRows : [['No classes scheduled', '', '', '', '']],
+    theme: 'grid',
+    headStyles: {
+      fillColor: primaryColor as [number, number, number],
+      fontSize: 12,
+      textColor: [255, 255, 255],
+      halign: 'center',
+      valign: 'middle',
+      minCellHeight: 14
+    },
+    styles: {
+      fontSize: 10,
+      cellPadding: 4,
+      textColor: textColor as [number, number, number],
+      lineColor: borderColor as [number, number, number],
+      valign: 'middle'
+    },
+    columnStyles: {
+      0: { cellWidth: 40, fontStyle: 'bold', halign: 'center', fillColor: [248, 250, 252] },
+      1: { cellWidth: 40, halign: 'center', fontStyle: 'bold' },
+      2: { cellWidth: 60, halign: 'center' },
+      3: { cellWidth: 80, halign: 'center' },
+      4: { cellWidth: 50, halign: 'center' }
+    },
+    didParseCell: function (data) {
+      // Merge cells for Day column
+      // We are just leaving the cell blank in body if it's not the first,
+      // but autoTable handles rowSpan nicely if we set it. 
+      // A simpler way is just to not draw borders between empty Day cells, but we'll leave it simple.
+    }
+  });
+
+  const totalPages = doc.internal.pages.length - 1;
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    // Footer
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184); // Slate-400
+    doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
+    doc.setLineWidth(0.5);
+    doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+    doc.text('EduFlow © 2026 - Weekly Class Routine', 14, pageHeight - 10);
+    doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
+  }
+
+  const filename = `${userName.replace(/\s+/g, '_')}_Weekly_Schedule.pdf`;
+  doc.save(filename);
+};
+
 export const generateTeacherReport = (data: ReportData) => {
   const { teacherName, batches, enrollments, selectedMonth } = data;
 

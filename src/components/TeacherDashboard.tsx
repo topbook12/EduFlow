@@ -23,7 +23,8 @@ import {
   Check,
   LayoutGrid,
   List,
-  CalendarDays
+  CalendarDays,
+  Download
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip as ChartTooltip, Legend, LineChart, Line, AreaChart, Area, CartesianGrid } from 'recharts';
 import { 
@@ -408,12 +409,100 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
     }
   };
 
-  // Confirm/Alter Student Payment Status
-  const handleVerifyPayment = async (studentId: string, status: 'paid' | 'unpaid') => {
+  // Download Tuition Payment Status as CSV
+  const handleDownloadCSV = () => {
     try {
-      const enrollment = enrollments.find(e => e.studentId === studentId);
-      if (!enrollment) return;
-      await confirmPaymentStatus(enrollment.batchId, studentId, paymentFilterMonth, status);
+      const roster = getSelectedBatchRoster();
+      if (roster.length === 0) {
+        setErrorMsg('ডাউনলোড করার জন্য কোনো তথ্য পাওয়া যায়নি।');
+        return;
+      }
+
+      // Headers for CSV
+      const headers = [
+        'Student Name (শিক্ষার্থীর নাম)',
+        'Phone (মোবাইল নম্বর)',
+        'Email (ইমেইল)',
+        'Institution (শিক্ষা প্রতিষ্ঠান)',
+        'Batch Name (ব্যাচ)',
+        'Base Fee (নির্ধারিত বেতন)',
+        'Discount (ছাড়)',
+        'Extra Charges (অতিরিক্ত ফি/জরিমানা)',
+        'Total Payable (মোট প্রদেয়)',
+        'Amount Paid (পরিশোধিত)',
+        'Due (বকেয়া)',
+        'Payment Status (স্ট্যাটাস)',
+        'Trx ID / Notes (ট্রানজেকশন/মন্তব্য)'
+      ];
+
+      const csvRows = [headers.map(h => `"${h.replace(/"/g, '""')}"`).join(',')];
+
+      roster.forEach(student => {
+        const studentBatch = batches.find(b => b.id === student.batchId);
+        const bName = studentBatch ? studentBatch.name : 'Unknown';
+        const defFee = studentBatch?.monthlyFee || 1200;
+        const fee = student.customFee !== undefined ? student.customFee : defFee;
+        const discount = student.discount || 0;
+        const extraChargesSum = student.extraCharges?.[paymentFilterMonth]?.reduce((sum, item) => sum + item.amount, 0) || 0;
+        const netPayable = Math.max(0, fee - discount) + extraChargesSum;
+
+        const paid = student.paidAmountMap?.[paymentFilterMonth] !== undefined
+          ? student.paidAmountMap[paymentFilterMonth]
+          : (student.paymentStatus?.[paymentFilterMonth] === 'paid' ? netPayable : 0);
+
+        const due = Math.max(0, netPayable - paid);
+        const status = student.paymentStatus?.[paymentFilterMonth] || 'unpaid';
+        
+        // Map status to readable format
+        let statusText = 'Unpaid (বকেয়া)';
+        if (status === 'paid') statusText = 'Paid (পরিশোধিত)';
+        else if (status === 'pending') statusText = 'Pending Review (পেন্ডিং)';
+
+        // Combine recent transactions/notes
+        const monthTx = student.paymentHistory?.filter(t => t.month === paymentFilterMonth) || [];
+        const txDetail = monthTx.map(t => `${t.amount} via ${t.method}${t.trxId ? ` [TrxID: ${t.trxId}]` : ''}${t.note ? ` (${t.note})` : ''}`).join('; ');
+
+        const row = [
+          student.studentName,
+          student.studentPhone,
+          student.studentEmail,
+          student.studentInstitution || 'N/A',
+          bName,
+          fee.toString(),
+          discount.toString(),
+          extraChargesSum.toString(),
+          netPayable.toString(),
+          paid.toString(),
+          due.toString(),
+          statusText,
+          txDetail || 'N/A'
+        ];
+
+        csvRows.push(row.map(val => `"${val.replace(/"/g, '""')}"`).join(','));
+      });
+
+      const csvContent = "\ufeff" + csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Tuition_Payments_${paymentFilterMonth.replace(/\s+/g, '_')}_${selectedBatchId === 'all' ? 'All_Batches' : (batches.find(b => b.id === selectedBatchId)?.name || 'Batch').replace(/\s+/g, '_')}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setSuccessMsg(`পেমেন্ট রিপোর্ট (${paymentFilterMonth}) সফলভাবে CSV ফরম্যাটে ডাউনলোড হয়েছে!`);
+    } catch (err) {
+      console.error('CSV Generation Error:', err);
+      setErrorMsg('CSV রিপোর্ট তৈরিতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+    }
+  };
+
+  // Confirm/Alter Student Payment Status
+  const handleVerifyPayment = async (batchId: string, studentId: string, status: 'paid' | 'unpaid') => {
+    try {
+      await confirmPaymentStatus(batchId, studentId, paymentFilterMonth, status);
       setSuccessMsg("পেমেন্ট সফলভাবে একসেপ্ট করা হয়েছে ও পেমেন্ট স্ট্যাটাস আপডেট হয়েছে!");
     } catch (error) {
       console.error("Failed to update payment status:", error);
@@ -1015,6 +1104,43 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
           {activeTab === 'batches' && batches.length > 0 && (
             <div className="space-y-6 animate-fade-in">
               
+              {/* Pending Requests Alert Banner */}
+              {totalStudentNotifications > 0 && (
+                <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent border border-amber-300/60 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl"></div>
+                  <div className="flex items-start sm:items-center gap-3 relative z-10">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-white animate-pulse text-sm">
+                      🔔
+                    </span>
+                    <div>
+                      <h4 className="font-extrabold text-sm sm:text-base text-amber-950 animate-pulse">
+                        নতুন পেন্ডিং রিকোয়েস্ট রয়েছে!
+                      </h4>
+                      <p className="text-xs text-amber-850 font-bold mt-0.5">
+                        {pendingPaymentCount > 0 && `${pendingPaymentCount} টি পেমেন্ট ভেরিফিকেশন`}
+                        {pendingPaymentCount > 0 && pendingJoinCount > 0 && ' এবং '}
+                        {pendingJoinCount > 0 && `${pendingJoinCount} টি ব্যাচ জয়েন রিকোয়েস্ট`} অনুমোদন অপেক্ষমান রয়েছে।
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('students');
+                      // If there is only pending join requests, set the filter to pending
+                      if (pendingJoinCount > 0 && pendingPaymentCount === 0) {
+                        setStudentStatusFilter('pending');
+                      } else if (pendingPaymentCount > 0) {
+                        setPaymentStatusFilter('pending');
+                      }
+                    }}
+                    className="flex items-center justify-center space-x-1.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-all duration-150 cursor-pointer shadow-md shadow-amber-600/10 hover:shadow-lg active:scale-97 shrink-0"
+                  >
+                    <span>✓ পেন্ডিং রিকোয়েস্ট রিভিউ করুন</span>
+                  </button>
+                </div>
+              )}
+
               {/* Dashboard Header & Export Action */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-teal-50/70 to-emerald-50/20 p-4 sm:p-5 rounded-2xl border border-teal-100/50 shadow-sm">
                 <div>
@@ -1740,11 +1866,22 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                 <h3 className="font-display text-lg font-bold text-gray-900">শিক্ষার্থী ও বেতন ট্র্যাকিং বিবরণী</h3>
                 <p className="text-xs text-gray-500">ব্যাচভিত্তিক পেমেন্ট স্ট্যাটাস ও স্টুডেন্ট রোস্টার</p>
               </div>
-              <div className="mt-3 sm:mt-0">
+              <div className="mt-3 sm:mt-0 flex flex-wrap items-center gap-2">
+                {batches.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleDownloadCSV}
+                    className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition-all duration-150 cursor-pointer shadow-sm active:scale-97"
+                    title="ডাউনলোড পেমেন্ট লিস্ট (CSV)"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>পেমেন্ট লিস্ট (CSV)</span>
+                  </button>
+                )}
                 <select
                   value={selectedBatchId}
                   onChange={(e) => setSelectedBatchId(e.target.value)}
-                  className="border-2 border-teal-600 bg-teal-50 text-teal-800 rounded-xl p-2 text-xs font-bold focus:outline-none"
+                  className="border-2 border-teal-600 bg-teal-50 text-teal-800 rounded-xl p-2.5 text-xs font-bold focus:outline-none h-[38px]"
                 >
                   {batches.length > 0 && (
                     <option value="all">📁 সব ব্যাচ (All Batches)</option>
@@ -2316,7 +2453,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                               <div className="flex gap-2 pt-1">
                                 <button
                                   type="button"
-                                  onClick={() => handleVerifyPayment(student.studentId, 'paid')}
+                                  onClick={() => handleVerifyPayment(student.batchId, student.studentId, 'paid')}
                                   className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
                                 >
                                   ✓ একসেপ্ট করুন
@@ -2523,7 +2660,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                                 <>
                                   <button
                                     type="button"
-                                    onClick={() => handleVerifyPayment(student.studentId, 'paid')}
+                                    onClick={() => handleVerifyPayment(student.batchId, student.studentId, 'paid')}
                                     className="flex h-8 px-2.5 items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-sm cursor-pointer text-xs font-extrabold mr-1 shrink-0"
                                     title="পেমেন্ট একসেপ্ট করুন"
                                   >

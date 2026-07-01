@@ -71,35 +71,39 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
   useEffect(() => {
     const unsubscribe = subscribeToStudentEnrollments(user.uid, (enrollmentList) => {
       setEnrollments(enrollmentList);
-      const batchIds = enrollmentList.filter(e => e.status === 'active').map(e => e.batchId);
-      
-      if (batchIds.length > 0) {
-        const unsubBatches = subscribeToBatches(batchIds, (batchList) => {
-          setEnrolledBatches(batchList);
-        });
-
-        const unsubNotices = subscribeToNotices(batchIds, (noticeList) => {
-          setNotices(noticeList);
-        });
-
-        const unsubMaterials = subscribeToMaterials(batchIds, (materialList) => {
-          setMaterials(materialList);
-        });
-
-        return () => {
-          unsubBatches();
-          unsubNotices();
-          unsubMaterials();
-        };
-      } else {
-        setEnrolledBatches([]);
-        setNotices([]);
-        setMaterials([]);
-      }
     });
-
     return () => unsubscribe();
   }, [user.uid]);
+
+  // 2. Listen to Batches, Notices, and Materials based on Enrollments
+  useEffect(() => {
+    const batchIds = enrollments.filter(e => e.status === 'active').map(e => e.batchId);
+    
+    if (batchIds.length === 0) {
+      setEnrolledBatches([]);
+      setNotices([]);
+      setMaterials([]);
+      return;
+    }
+
+    const unsubBatches = subscribeToBatches(batchIds, (batchList) => {
+      setEnrolledBatches(batchList);
+    });
+
+    const unsubNotices = subscribeToNotices(batchIds, (noticeList) => {
+      setNotices(noticeList);
+    });
+
+    const unsubMaterials = subscribeToMaterials(batchIds, (materialList) => {
+      setMaterials(materialList);
+    });
+
+    return () => {
+      unsubBatches();
+      unsubNotices();
+      unsubMaterials();
+    };
+  }, [enrollments]);
 
   // Handle joining a new batch
   const handleJoinBatch = async (e: React.FormEvent) => {

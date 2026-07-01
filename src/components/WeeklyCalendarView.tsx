@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { AppUser, BatchSchedule } from '../types';
 import { updateBatchSchedule } from '../dbUtils';
+import { generateWeeklySchedulePDF } from '../utils/reportGenerator';
 
 export interface CalendarClassItem {
   day: 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
@@ -442,10 +443,28 @@ export const WeeklyCalendarView: React.FC<WeeklyCalendarViewProps> = ({
         </div>
 
         {/* Action Controls / Counter */}
-        <div className="flex items-center gap-2 shrink-0 bg-slate-50 border border-slate-100 p-1.5 rounded-2xl self-start md:self-center">
-          <span className="text-xs font-black text-slate-700 px-3">
-            মোট ক্লাস: <span className="text-teal-600 text-sm font-black">{items.length}টি</span>
-          </span>
+        <div className="flex items-center gap-2 shrink-0 self-start md:self-center">
+          <button
+            onClick={() => {
+              if (batchesList && user) {
+                generateWeeklySchedulePDF({
+                  userName: user.name,
+                  role: userRole,
+                  batches: batchesList
+                });
+              }
+            }}
+            className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-sm active:scale-95"
+            title="রুটিন ডাউনলোড করুন (PDF)"
+          >
+            <FileText className="w-4 h-4" />
+            <span className="hidden sm:inline">রুটিন (PDF)</span>
+          </button>
+          <div className="bg-slate-50 border border-slate-100 p-1.5 rounded-xl">
+            <span className="text-xs font-black text-slate-700 px-3">
+              মোট ক্লাস: <span className="text-teal-600 text-sm font-black">{items.length}টি</span>
+            </span>
+          </div>
         </div>
       </div>
 

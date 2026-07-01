@@ -36,19 +36,27 @@ interface ReportData {
 import html2canvas from 'html2canvas';
 
 const getBase64ImageFromUrl = async (imageUrl: string): Promise<string> => {
-  try {
-    const response = await fetch(imageUrl);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.error("Error loading image", error);
-    return "";
-  }
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      } else {
+        resolve('');
+      }
+    };
+    img.onerror = () => {
+      console.error("Failed to load image:", imageUrl);
+      resolve('');
+    };
+    img.src = imageUrl;
+  });
 };
 
 export const generateWeeklySchedulePDF = async (data: ScheduleData) => {
@@ -89,9 +97,9 @@ export const generateWeeklySchedulePDF = async (data: ScheduleData) => {
   container.style.position = 'absolute';
   container.style.top = '-9999px';
   container.style.left = '-9999px';
-  container.style.width = '800px'; // Portrait layout width
+  container.style.width = '700px'; // Portrait layout width
   container.style.backgroundColor = '#ffffff';
-  container.style.padding = '20px';
+  container.style.padding = '15px';
   container.style.fontFamily = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
   container.style.color = '#1e293b';
 
@@ -105,52 +113,52 @@ export const generateWeeklySchedulePDF = async (data: ScheduleData) => {
     classes.forEach((cl, idx) => {
       const isFirst = idx === 0;
       rowsHtml += `
-        <tr style="background-color: ${isFirst ? '#f8fafc' : '#ffffff'}; border-bottom: 1px solid #e2e8f0;">
-          ${isFirst ? `<td rowspan="${classes.length}" style="padding: 12px 8px; border-right: 1px solid #e2e8f0; font-weight: 700; text-align: center; vertical-align: middle; color: #0f865f; font-size: 14px;">
-            ${day}<br/><span style="font-size: 12px; color: #64748b; font-weight: normal;">(${BENGALI_DAYS[day] || ''})</span>
+        <tr style="background-color: ${isFirst ? '#f8fafc' : '#ffffff'};">
+          ${isFirst ? `<td rowspan="${classes.length}" style="padding: 6px 4px; border: 1px solid #cbd5e1; font-weight: 700; text-align: center; vertical-align: middle; color: #0f865f; font-size: 13px;">
+            ${day}<br/><span style="font-size: 11px; color: #64748b; font-weight: normal;">(${BENGALI_DAYS[day] || ''})</span>
           </td>` : ''}
-          <td style="padding: 12px 8px; border-right: 1px solid #e2e8f0; font-weight: 600; text-align: center;">${formatTimeTo12Hour(cl.time)}</td>
-          <td style="padding: 12px 8px; border-right: 1px solid #e2e8f0; text-align: center; font-weight: 500;">${cl.subject || 'N/A'}</td>
-          <td style="padding: 12px 8px; border-right: 1px solid #e2e8f0; text-align: center; color: #334155;">${cl.batchName} <span style="color: #64748b; font-size: 11px;">(${cl.code || 'N/A'})</span></td>
-          <td style="padding: 12px 8px; text-align: center;">${cl.teacher || 'N/A'}</td>
+          <td style="padding: 6px 4px; border: 1px solid #cbd5e1; font-weight: 600; text-align: center;">${formatTimeTo12Hour(cl.time)}</td>
+          <td style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; font-weight: 500;">${cl.subject || 'N/A'}</td>
+          <td style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; color: #334155;">${cl.batchName} <span style="color: #64748b; font-size: 10px;">(${cl.code || 'N/A'})</span></td>
+          <td style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center;">${cl.teacher || 'N/A'}</td>
         </tr>
       `;
     });
   });
 
   if (!rowsHtml) {
-    rowsHtml = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: #64748b;">কোনো ক্লাস শিডিউল নেই</td></tr>`;
+    rowsHtml = `<tr><td colspan="5" style="padding: 15px; text-align: center; color: #64748b; border: 1px solid #cbd5e1;">কোনো ক্লাস শিডিউল নেই</td></tr>`;
   }
 
   const generatedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   container.innerHTML = `
-    <div style="border: 2px solid #0f865f; border-radius: 12px; overflow: hidden; background: #fff;">
+    <div style="border: 2px solid #0f865f; border-radius: 8px; overflow: hidden; background: #fff;">
       <!-- Header -->
-      <div style="background-color: #0f865f; color: white; padding: 20px 25px; display: flex; justify-content: space-between; align-items: center;">
-        <div style="display: flex; align-items: center; gap: 15px;">
-          ${logoBase64 ? `<img src="${logoBase64}" alt="EduFlow Logo" style="width: 60px; height: 60px; border-radius: 10px; border: 2px solid white; object-fit: cover;" />` : ''}
+      <div style="background-color: #0f865f; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          ${logoBase64 ? `<img src="${logoBase64}" alt="EduFlow Logo" style="width: 50px; height: 50px; border-radius: 8px; border: 2px solid white; object-fit: cover;" />` : ''}
           <div>
-            <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 1px;">EduFlow</h1>
-            <p style="margin: 4px 0 0 0; color: #ccf1e1; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Premium Academic Management</p>
+            <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 0.5px;">EduFlow</h1>
+            <p style="margin: 2px 0 0 0; color: #ccf1e1; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Premium Academic Management</p>
           </div>
         </div>
         <div style="text-align: right;">
-          <h2 style="margin: 0; font-size: 18px; font-weight: 700; text-transform: uppercase;">Weekly Class Routine</h2>
-          <p style="margin: 6px 0 0 0; color: #ccf1e1; font-size: 12px;">Generated For: <strong style="color: #fff;">${userName}</strong> (${role === 'teacher' ? 'Instructor' : 'Student'})</p>
-          <p style="margin: 4px 0 0 0; color: #ccf1e1; font-size: 12px;">Date: ${generatedDate}</p>
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; text-transform: uppercase;">Weekly Class Routine</h2>
+          <p style="margin: 4px 0 0 0; color: #ccf1e1; font-size: 11px;">Generated For: <strong style="color: #fff;">${userName}</strong> (${role === 'teacher' ? 'Instructor' : 'Student'})</p>
+          <p style="margin: 2px 0 0 0; color: #ccf1e1; font-size: 11px;">Date: ${generatedDate}</p>
         </div>
       </div>
       
       <!-- Table -->
-      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
         <thead>
-          <tr style="background-color: #f1f5f9; color: #334155; border-bottom: 2px solid #cbd5e1;">
-            <th style="padding: 12px 8px; border-right: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.5px; width: 18%;">Day (দিন)</th>
-            <th style="padding: 12px 8px; border-right: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.5px; width: 15%;">Time (সময়)</th>
-            <th style="padding: 12px 8px; border-right: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.5px; width: 22%;">Subject (বিষয়)</th>
-            <th style="padding: 12px 8px; border-right: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.5px; width: 27%;">Batch (ব্যাচ)</th>
-            <th style="padding: 12px 8px; text-transform: uppercase; letter-spacing: 0.5px; width: 18%;">Instructor (শিক্ষক)</th>
+          <tr style="background-color: #f1f5f9; color: #334155;">
+            <th style="padding: 8px 4px; border: 1px solid #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; width: 18%;">Day (দিন)</th>
+            <th style="padding: 8px 4px; border: 1px solid #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; width: 15%;">Time (সময়)</th>
+            <th style="padding: 8px 4px; border: 1px solid #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; width: 22%;">Subject (বিষয়)</th>
+            <th style="padding: 8px 4px; border: 1px solid #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; width: 27%;">Batch (ব্যাচ)</th>
+            <th style="padding: 8px 4px; border: 1px solid #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; width: 18%;">Instructor (শিক্ষক)</th>
           </tr>
         </thead>
         <tbody>
@@ -159,7 +167,7 @@ export const generateWeeklySchedulePDF = async (data: ScheduleData) => {
       </table>
       
       <!-- Footer -->
-      <div style="background-color: #f8fafc; padding: 12px 25px; text-align: center; color: #94a3b8; font-size: 11px; border-top: 1px solid #e2e8f0;">
+      <div style="background-color: #f8fafc; padding: 10px 20px; text-align: center; color: #94a3b8; font-size: 10px; border-top: 1px solid #cbd5e1;">
         EduFlow © ${new Date().getFullYear()} - This routine is dynamically generated based on the latest batch schedules.
       </div>
     </div>

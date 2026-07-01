@@ -15,7 +15,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
-import { AppUser, Batch, Enrollment, StudyMaterial, Notice, Transaction, ExtraCharge, Attendance } from './types';
+import { AppUser, Batch, Enrollment, StudyMaterial, Notice, Transaction, ExtraCharge, Attendance, Exam, ExamResult } from './types';
 
 export enum OperationType {
   CREATE = 'create',
@@ -156,7 +156,7 @@ function triggerLocalSubscribers(collectionName: string) {
 // Initial Sync from Firestore to LocalStorage
 async function syncFirestoreToLocal() {
   try {
-    const collectionsToSync = ['users', 'batches', 'enrollments', 'materials', 'notices', 'attendance'];
+    const collectionsToSync = ['users', 'batches', 'enrollments', 'materials', 'notices', 'attendance', 'exams', 'examResults'];
     for (const col of collectionsToSync) {
       try {
         const snap = await getDocs(collection(db, col));
@@ -1634,6 +1634,272 @@ export async function seedAttendanceIfEmpty(batchId: string, enrollments: Enroll
     for (const rec of seeded.slice(0, 50)) { // just save a subset online to maintain Firestore sync without rate limits
       const docRef = doc(db, 'attendance', rec.id);
       setDoc(docRef, rec).catch(() => {});
+    }
+  });
+}
+
+/**
+ * Create a new exam
+ */
+export async function createExam(examData: Omit<Exam, 'id' | 'createdAt'>): Promise<string> {
+  const examId = 'exam-' + Math.random().toString(36).substring(2);
+  const newExam: Exam = {
+    ...examData,
+    id: examId,
+    createdAt: new Date().toISOString()
+  };
+
+  // 1. Write to local storage
+  const exams = getLocalCollection<Exam>('exams');
+  exams.push(newExam);
+  setLocalCollection('exams', exams);
+
+  // 2. Post exam alert notice
+  await postNotice(
+    examData.batchId,
+    examData.batchName,
+    DEMO_TEACHER_UID,
+    "EduFlow Exams",
+    'exam_alert',
+    `📝 নতুন পরীক্ষা যুক্ত করা হয়েছে: "${examData.title}" (${examData.subject})। তারিখ: ${examData.examDate}। মোট নম্বর: ${examData.totalMarks}।`
+  );
+
+  // 3. Write to Firestore
+  await runOnlineWrite(async () => {
+    const examRef = doc(db, 'exams', examId);
+    await setDoc(examRef, newExam);
+  });
+
+  return examId;
+}
+
+/**
+ * Save or update student exam result
+ */
+export async function saveStudentExamResult(
+  examId: string,
+  studentId: string,
+  studentName: string,
+  marksObtained: number,
+  remarks: string = ""
+): Promise<void> {
+  const resultId = `${examId}_${studentId}`;
+  const results = getLocalCollection<ExamResult>('examResults');
+  const existingIndex = results.findIndex(r => r.id === resultId);
+
+  const newRecord: ExamResult = {
+    id: resultId,
+    examId,
+    studentId,
+    studentName,
+    marksObtained,
+    remarks,
+    submittedAt: new Date().toISOString()
+  };
+
+  if (existingIndex > -1) {
+    results[existingIndex] = newRecord;
+  } else {
+    results.push(newRecord);
+  }
+
+  setLocalCollection('examResults', results);
+
+  await runOnlineWrite(async () => {
+    const docRef = doc(db, 'examResults', resultId);
+    await setDoc(docRef, newRecord);
+  });
+}
+
+/**
+ * Subscribe to batch exams
+ */
+export function subscribeToBatchExams(
+  batchId: string,
+  callback: (records: Exam[]) => void
+) {
+  let unsubFirestore: (() => void) | null = null;
+  const filterFn = (e: Exam) => e.batchId === batchId;
+
+  const subId = Math.random().toString(36).substring(2);
+  const localSub: Subscription = {
+    id: subId,
+    type: 'exams',
+    filterFn,
+    callback: (list: Exam[]) => {
+      const sorted = [...list].sort((a, b) => new Date(b.examDate).getTime() - new Date(a.examDate).getTime());
+      callback(sorted);
+    }
+  };
+
+  if (!isOfflineMode) {
+    try {
+      const colRef = collection(db, 'exams');
+      const q = query(colRef, where('batchId', '==', batchId));
+      unsubFirestore = onSnapshot(q, (snapshot) => {
+        const list: Exam[] = [];
+        snapshot.forEach(doc => {
+          list.push(doc.data() as Exam);
+        });
+
+        const localList = getLocalCollection<Exam>('exams');
+        const otherItems = localList.filter(e => e.batchId !== batchId);
+        setLocalCollection('exams', [...otherItems, ...list]);
+        
+        const sorted = [...list].sort((a, b) => new Date(b.examDate).getTime() - new Date(a.examDate).getTime());
+        callback(sorted);
+      }, (err) => {
+        console.warn("Firestore exams watch error, switching to local state:", err);
+        if (isNetworkError(err)) setOfflineStatus(true);
+        const localList = getLocalCollection<Exam>('exams').filter(filterFn);
+        const sorted = [...localList].sort((a, b) => new Date(b.examDate).getTime() - new Date(a.examDate).getTime());
+        callback(sorted);
+      });
+    } catch (err) {
+      console.warn("Firestore exams watch failed, using local state:", err);
+      if (isNetworkError(err)) setOfflineStatus(true);
+    }
+  }
+
+  localSubscriptions.push(localSub);
+  const localList = getLocalCollection<Exam>('exams').filter(filterFn);
+  const sorted = [...localList].sort((a, b) => new Date(b.examDate).getTime() - new Date(a.examDate).getTime());
+  callback(sorted);
+
+  return () => {
+    if (unsubFirestore) unsubFirestore();
+    localSubscriptions = localSubscriptions.filter(s => s.id !== subId);
+  };
+}
+
+/**
+ * Subscribe to all exam results for a list of exams
+ */
+export function subscribeToExamResults(
+  examIds: string[],
+  callback: (records: ExamResult[]) => void
+) {
+  let unsubFirestore: (() => void) | null = null;
+  const filterFn = (r: ExamResult) => examIds.includes(r.examId);
+
+  const subId = Math.random().toString(36).substring(2);
+  const localSub: Subscription = {
+    id: subId,
+    type: 'examResults',
+    filterFn,
+    callback
+  };
+
+  if (!isOfflineMode && examIds.length > 0) {
+    try {
+      const colRef = collection(db, 'examResults');
+      const q = query(colRef, where('examId', 'in', examIds.slice(0, 30)));
+      unsubFirestore = onSnapshot(q, (snapshot) => {
+        const list: ExamResult[] = [];
+        snapshot.forEach(doc => {
+          list.push(doc.data() as ExamResult);
+        });
+
+        const localList = getLocalCollection<ExamResult>('examResults');
+        const otherItems = localList.filter(r => !examIds.includes(r.examId));
+        setLocalCollection('examResults', [...otherItems, ...list]);
+        callback(list);
+      }, (err) => {
+        console.warn("Firestore examResults watch error, switching to local state:", err);
+        if (isNetworkError(err)) setOfflineStatus(true);
+        callback(getLocalCollection<ExamResult>('examResults').filter(filterFn));
+      });
+    } catch (err) {
+      console.warn("Firestore examResults watch failed, using local state:", err);
+      if (isNetworkError(err)) setOfflineStatus(true);
+    }
+  }
+
+  localSubscriptions.push(localSub);
+  callback(getLocalCollection<ExamResult>('examResults').filter(filterFn));
+
+  return () => {
+    if (unsubFirestore) unsubFirestore();
+    localSubscriptions = localSubscriptions.filter(s => s.id !== subId);
+  };
+}
+
+/**
+ * Seed realistic exams and student marks if empty
+ */
+export async function seedExamsIfEmpty(batchId: string, enrollments: Enrollment[]): Promise<void> {
+  const exams = getLocalCollection<Exam>('exams');
+  const batchExams = exams.filter(e => e.batchId === batchId);
+  if (batchExams.length > 0) return; // already has exams seeded
+
+  const activeStudents = enrollments.filter(e => e.batchId === batchId && e.status === 'active');
+  if (activeStudents.length === 0) return;
+
+  const batches = getLocalCollection<Batch>('batches');
+  const activeBatch = batches.find(b => b.id === batchId);
+  const subjectName = activeBatch?.subject || "Physics";
+
+  // Create 4 mock exams with standard historical dates in June/July 2026
+  const examTemplates = [
+    { title: "Weekly Test 01: Basics", totalMarks: 20, examDate: "2026-06-05" },
+    { title: "Weekly Test 02: Formulas & Concepts", totalMarks: 25, examDate: "2026-06-12" },
+    { title: "Monthly Assessment: Mid-term", totalMarks: 50, examDate: "2026-06-19" },
+    { title: "Weekly Test 03: Advanced Practice", totalMarks: 30, examDate: "2026-06-26" }
+  ];
+
+  const seededExams: Exam[] = [];
+  const seededResults: ExamResult[] = [];
+
+  examTemplates.forEach((tpl, idx) => {
+    const examId = `exam-${batchId}-${idx}`;
+    seededExams.push({
+      id: examId,
+      batchId,
+      batchName: activeBatch?.name || "Academic Batch",
+      subject: subjectName,
+      title: tpl.title,
+      totalMarks: tpl.totalMarks,
+      examDate: tpl.examDate,
+      createdAt: new Date().toISOString()
+    });
+
+    activeStudents.forEach(student => {
+      // Generate some realistic marks based on student (Sadman is a good student)
+      let scorePercent = student.studentId === DEMO_STUDENT_UID ? 0.85 + Math.random() * 0.14 : 0.5 + Math.random() * 0.45;
+      if (scorePercent > 1) scorePercent = 1;
+      const score = Math.round(tpl.totalMarks * scorePercent);
+      
+      let remarks = "খুব ভালো";
+      if (scorePercent >= 0.85) remarks = "অসাধারণ!";
+      else if (scorePercent >= 0.7) remarks = "ভালো, তবে আরো সুযোগ আছে";
+      else if (scorePercent < 0.6) remarks = "আরো মনোযোগ দিতে হবে";
+
+      seededResults.push({
+        id: `${examId}_${student.studentId}`,
+        examId,
+        studentId: student.studentId,
+        studentName: student.studentName,
+        marksObtained: score,
+        remarks,
+        submittedAt: new Date().toISOString()
+      });
+    });
+  });
+
+  const updatedExams = [...exams, ...seededExams];
+  setLocalCollection('exams', updatedExams);
+
+  const results = getLocalCollection<ExamResult>('examResults');
+  const updatedResults = [...results, ...seededResults];
+  setLocalCollection('examResults', updatedResults);
+
+  // Write a few to Firestore to keep in sync
+  await runOnlineWrite(async () => {
+    for (const exam of seededExams) {
+      await setDoc(doc(db, 'exams', exam.id), exam).catch(() => {});
+    }
+    for (const res of seededResults.slice(0, 30)) {
+      await setDoc(doc(db, 'examResults', res.id), res).catch(() => {});
     }
   });
 }

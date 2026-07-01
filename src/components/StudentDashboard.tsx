@@ -26,6 +26,7 @@ import {
 } from '../dbUtils';
 import { AppUser, Batch, Enrollment, StudyMaterial, Notice, DailyRoadmapItem } from '../types';
 import { WeeklyCalendarView } from './WeeklyCalendarView';
+import { StudentExamPerformance } from './StudentExamPerformance';
 
 interface StudentDashboardProps {
   user: AppUser;
@@ -46,7 +47,7 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
   const [selectedMonth, setSelectedMonth] = useState('June 2026');
   const [joining, setJoining] = useState(false);
   const [reportingMap, setReportingMap] = useState<{ [key: string]: boolean }>({});
-  const [activeTab, setActiveTab] = useState<'roadmap' | 'notices' | 'materials' | 'tuition'>('roadmap');
+  const [activeTab, setActiveTab] = useState<'roadmap' | 'notices' | 'materials' | 'tuition' | 'exams'>('roadmap');
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
 
@@ -295,6 +296,18 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
                 ৳
               </span>
             ) : null}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('exams')}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-200 cursor-pointer relative ${
+              activeTab === 'exams'
+                ? 'bg-white text-[#0f865f] shadow-sm'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <span className="text-lg">📝</span>
+            <span>এক্সাম ও ফলাফল</span>
           </button>
         </div>,
         portalNode
@@ -693,6 +706,13 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
             </div>
           )}
 
+          {activeTab === 'exams' && (
+            <StudentExamPerformance
+              studentId={user.uid}
+              enrolledBatches={enrolledBatches}
+            />
+          )}
+
         </div>
 
       </div>
@@ -750,6 +770,16 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
                 </span>
               ) : null}
               <span className="text-[9px] font-bold font-sans mt-0.5 tracking-wide">বেতন</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('exams')}
+              className={`flex flex-col items-center space-y-0.5 py-0.5 px-2 rounded-xl transition-all duration-100 transform active:scale-90 cursor-pointer relative ${
+                activeTab === 'exams' ? 'text-teal-600 font-bold scale-105' : 'text-gray-500'
+              }`}
+            >
+              <span className={`text-base drop-shadow-sm transition-all duration-150 ${activeTab === 'exams' ? 'opacity-100' : 'opacity-60 grayscale'}`}>📝</span>
+              <span className="text-[9px] font-bold font-sans mt-0.5 tracking-wide">এক্সাম</span>
             </button>
           </div>
         </div>

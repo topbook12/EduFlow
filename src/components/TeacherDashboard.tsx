@@ -52,6 +52,7 @@ import {
 import { AppUser, Batch, Enrollment, StudyMaterial, Notice, BatchSchedule, ExtraCharge, Attendance } from '../types';
 import { generateTeacherReport } from '../utils/reportGenerator';
 import { TeacherPerformanceView } from './TeacherPerformanceView';
+import { TeacherExamManager } from './TeacherExamManager';
 import { motion } from 'motion/react';
 import { WeeklyCalendarView } from './WeeklyCalendarView';
 
@@ -177,7 +178,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'batches' | 'broadcast' | 'materials' | 'students' | 'performance'>('batches');
+  const [activeTab, setActiveTab] = useState<'batches' | 'broadcast' | 'materials' | 'students' | 'performance' | 'exams'>('batches');
   const [scheduleViewMode, setScheduleViewMode] = useState<'calendar' | 'cards' | 'list'>('calendar');
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const [showCreateBatch, setShowCreateBatch] = useState(false);
@@ -1068,6 +1069,18 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
           >
             <span className="text-lg">📈</span>
             <span>পারফরম্যান্স</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('exams')}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+              activeTab === 'exams'
+                ? 'bg-white text-[#0f865f] shadow-sm'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <span className="text-lg">📝</span>
+            <span>এক্সাম ও ফলাফল</span>
           </button>
         </div>,
         portalNode
@@ -2758,6 +2771,14 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
           />
         )}
 
+        {activeTab === 'exams' && (
+          <TeacherExamManager
+            teacherId={user.uid}
+            batches={batches}
+            enrollments={enrollments}
+          />
+        )}
+
       </div>
 
       {/* Mobile Bottom Navigation Bar (PWA Style) */}
@@ -2815,7 +2836,17 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
               }`}
             >
               <span className={`text-base drop-shadow-sm transition-all duration-150 ${activeTab === 'performance' ? 'opacity-100' : 'opacity-60 grayscale'}`}>📈</span>
-              <span className="text-[9px] font-bold font-sans mt-0.5 tracking-wide">পারফরম্যান্স</span>
+              <span className="text-[9px] font-bold font-sans mt-0.5 tracking-wide">রিপোর্ট</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('exams')}
+              className={`flex flex-col items-center space-y-0.5 py-0.5 px-2 bg-transparent border-0 rounded-xl transition-all duration-100 transform active:scale-90 cursor-pointer ${
+                activeTab === 'exams' ? 'text-teal-600 font-bold scale-105' : 'text-gray-500'
+              }`}
+            >
+              <span className={`text-base drop-shadow-sm transition-all duration-150 ${activeTab === 'exams' ? 'opacity-100' : 'opacity-60 grayscale'}`}>📝</span>
+              <span className="text-[9px] font-bold font-sans mt-0.5 tracking-wide">এক্সাম</span>
             </button>
           </div>
         </div>

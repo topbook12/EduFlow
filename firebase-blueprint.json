@@ -87,6 +87,51 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "batchId", "teacherId", "type", "message"]
+    },
+    "Attendance": {
+      "title": "Student Attendance",
+      "description": "Records representing presence, lateness, or absence of a student for a specific class date",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "batchId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["present", "absent", "late"] }
+      },
+      "required": ["id", "batchId", "studentId", "date", "status"]
+    },
+    "Exam": {
+      "title": "Academic Exam",
+      "description": "Information about a specific exam created for a batch",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "batchId": { "type": "string" },
+        "batchName": { "type": "string" },
+        "subject": { "type": "string" },
+        "title": { "type": "string" },
+        "totalMarks": { "type": "number" },
+        "examDate": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "batchId", "title", "totalMarks", "examDate"]
+    },
+    "ExamResult": {
+      "title": "Student Exam Result",
+      "description": "Marks and remarks achieved by a student for an exam",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "examId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "marksObtained": { "type": "number" },
+        "remarks": { "type": "string" },
+        "submittedAt": { "type": "string" }
+      },
+      "required": ["id", "examId", "studentId", "marksObtained"]
     }
   },
   "firestore": {
@@ -109,6 +154,18 @@
     "notices/{noticeId}": {
       "schema": "Notice",
       "description": "Syllabus, test notifications and warnings"
+    },
+    "attendance/{attendanceId}": {
+      "schema": "Attendance",
+      "description": "Student attendance logging"
+    },
+    "exams/{examId}": {
+      "schema": "Exam",
+      "description": "Exams assigned to batches"
+    },
+    "examResults/{resultId}": {
+      "schema": "ExamResult",
+      "description": "Exam results and marks scored by students"
     }
   }
 }

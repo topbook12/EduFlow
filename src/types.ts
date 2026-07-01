@@ -107,3 +107,24 @@ export interface Attendance {
   date: string; // YYYY-MM-DD
   status: 'present' | 'absent' | 'late';
 }
+
+export interface Exam {
+  id: string;
+  batchId: string;
+  batchName: string;
+  subject: string;
+  title: string;
+  totalMarks: number;
+  examDate: string;
+  createdAt: string;
+}
+
+export interface ExamResult {
+  id: string; // examId_studentId
+  examId: string;
+  studentId: string;
+  studentName: string;
+  marksObtained: number;
+  remarks?: string;
+  submittedAt: string;
+}

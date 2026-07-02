@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   BookOpen, 
@@ -34,7 +34,21 @@ interface StudentDashboardProps {
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+const generateMonthsList = () => {
+  const months = [];
+  const currentDate = new Date();
+  for (let i = -3; i <= 3; i++) {
+    const d = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
+    const monthName = d.toLocaleString('en-US', { month: 'long' });
+    const year = d.getFullYear();
+    months.push(`${monthName} ${year}`);
+  }
+  return months;
+};
+
 export default function StudentDashboard({ user }: StudentDashboardProps) {
+  const availableMonths = useMemo(() => generateMonthsList(), []);
+  
   // Database States
   const [enrolledBatches, setEnrolledBatches] = useState<Batch[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -44,7 +58,10 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
   // UI States
   const [inviteCode, setInviteCode] = useState('');
   const [enrollMessage, setEnrollMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState('June 2026');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.toLocaleString('en-US', { month: 'long' })} ${d.getFullYear()}`;
+  });
   const [joining, setJoining] = useState(false);
   const [reportingMap, setReportingMap] = useState<{ [key: string]: boolean }>({});
   const [activeTab, setActiveTab] = useState<'roadmap' | 'notices' | 'materials' | 'tuition' | 'exams'>('roadmap');
@@ -577,9 +594,9 @@ export default function StudentDashboard({ user }: StudentDashboardProps) {
                       onChange={(e) => setSelectedMonth(e.target.value)}
                       className="w-full border-2 border-gray-100 rounded-2xl p-3.5 text-sm sm:text-base focus:outline-none focus:border-teal-500 font-extrabold bg-white cursor-pointer"
                     >
-                      <option value="May 2026">May 2026</option>
-                      <option value="June 2026">June 2026</option>
-                      <option value="July 2026">July 2026</option>
+                      {availableMonths.map(month => (
+                        <option key={month} value={month}>{month}</option>
+                      ))}
                     </select>
                   </div>
 

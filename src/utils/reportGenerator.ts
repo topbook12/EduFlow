@@ -43,6 +43,7 @@ import html2canvas from 'html2canvas';
 
 const getBase64ImageFromUrl = async (imageUrl: string): Promise<string> => {
   return new Promise((resolve, reject) => {
+    const fallbackLogoBase64 = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCIgdmlld0JveD0iMCAwIDUwIDUwIiBmaWxsPSIjMGY4NjVmIj48cmVjdCB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHJ4PSI4IiBmaWxsPSIjMGY4NjVmIi8+PHBhdGggZD0iTTI1IDEyTDEwIDIwLjVMMjUgMjlMNDAgMjAuNUwyNSAxMloiIGZpbGw9IndoaXRlIi8+PHBhdGggZD0iTTE0IDI0LjVWMzMuNUMxNCAzMy41IDE5IDM4IDI1IDM4QzMxIDM4IDM2IDMzLjUgMzYgMzMuNVYyNC41TDI1IDMwLjVMMTQgMjQuNVoiIGZpbGw9IndoaXRlIi8+PC9zdmc+';
     const img = new Image();
     img.crossOrigin = 'Anonymous';
     img.onload = () => {
@@ -54,12 +55,12 @@ const getBase64ImageFromUrl = async (imageUrl: string): Promise<string> => {
         ctx.drawImage(img, 0, 0);
         resolve(canvas.toDataURL('image/jpeg', 0.8));
       } else {
-        resolve('');
+        resolve(fallbackLogoBase64);
       }
     };
     img.onerror = () => {
-      console.error("Failed to load image:", imageUrl);
-      resolve('');
+      console.error("Failed to load image:", imageUrl, "Using fallback logo");
+      resolve(fallbackLogoBase64);
     };
     img.src = imageUrl;
   });
@@ -120,13 +121,21 @@ export const generateWeeklySchedulePDF = async (data: ScheduleData) => {
       const isFirst = idx === 0;
       rowsHtml += `
         <tr style="background-color: ${isFirst ? '#f8fafc' : '#ffffff'};">
-          ${isFirst ? `<td rowspan="${classes.length}" style="padding: 6px 4px; border: 1px solid #cbd5e1; font-weight: 700; text-align: center; vertical-align: middle; color: #0f865f; font-size: 13px;">
-            ${day}<br/><span style="font-size: 11px; color: #64748b; font-weight: normal;">(${BENGALI_DAYS[day] || ''})</span>
+          ${isFirst ? `<td rowspan="${classes.length}" style="padding: 12px 6px; border: 1px solid #cbd5e1; font-weight: 700; text-align: center; vertical-align: middle; color: #0f865f; font-size: 14px; line-height: 1.5;">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 48px; gap: 4px;">
+              <span>${day}</span>
+              <span style="font-size: 11px; color: #64748b; font-weight: normal;">(${BENGALI_DAYS[day] || ''})</span>
+            </div>
           </td>` : ''}
-          <td style="padding: 6px 4px; border: 1px solid #cbd5e1; font-weight: 600; text-align: center;">${formatTimeTo12Hour(cl.time)}</td>
-          <td style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; font-weight: 500;">${cl.subject || 'N/A'}</td>
-          <td style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center; color: #334155;">${cl.batchName} <span style="color: #64748b; font-size: 10px;">(${cl.code || 'N/A'})</span></td>
-          <td style="padding: 6px 4px; border: 1px solid #cbd5e1; text-align: center;">${cl.teacher || 'N/A'}</td>
+          <td style="padding: 10px 6px; border: 1px solid #cbd5e1; font-weight: 600; text-align: center; line-height: 1.4;">${formatTimeTo12Hour(cl.time)}</td>
+          <td style="padding: 10px 6px; border: 1px solid #cbd5e1; text-align: center; font-weight: 500; line-height: 1.4;">${cl.subject || 'N/A'}</td>
+          <td style="padding: 10px 6px; border: 1px solid #cbd5e1; text-align: center; color: #334155; line-height: 1.4;">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+              <span>${cl.batchName}</span>
+              <span style="color: #64748b; font-size: 11px;">(${cl.code || 'N/A'})</span>
+            </div>
+          </td>
+          <td style="padding: 10px 6px; border: 1px solid #cbd5e1; text-align: center; line-height: 1.4;">${cl.teacher || 'N/A'}</td>
         </tr>
       `;
     });

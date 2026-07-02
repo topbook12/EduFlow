@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   BookOpen, 
@@ -96,7 +96,21 @@ const getBatchAccentColors = (index: number) => {
   return colorSets[index % colorSets.length];
 };
 
+const generateMonthsList = () => {
+  const months = [];
+  const currentDate = new Date();
+  for (let i = -3; i <= 3; i++) {
+    const d = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
+    const monthName = d.toLocaleString('en-US', { month: 'long' });
+    const year = d.getFullYear();
+    months.push(`${monthName} ${year}`);
+  }
+  return months;
+};
+
 export default function TeacherDashboard({ user }: TeacherDashboardProps) {
+  const availableMonths = useMemo(() => generateMonthsList(), []);
+  
   // Database States
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
@@ -169,7 +183,10 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
   const [rejectionReason, setRejectionReason] = useState('');
 
   // UI Filter States
-  const [paymentFilterMonth, setPaymentFilterMonth] = useState('June 2026');
+  const [paymentFilterMonth, setPaymentFilterMonth] = useState(() => {
+    const d = new Date();
+    return `${d.toLocaleString('en-US', { month: 'long' })} ${d.getFullYear()}`;
+  });
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<'all' | 'paid' | 'pending' | 'unpaid'>('all');
   const [studentStatusFilter, setStudentStatusFilter] = useState<'all' | 'active' | 'pending'>('all');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
@@ -2121,9 +2138,9 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                       onChange={(e) => setPaymentFilterMonth(e.target.value)}
                       className="w-full bg-white border border-gray-200 rounded-xl p-1.5 text-xs focus:outline-none"
                     >
-                      <option value="May 2026">May 2026</option>
-                      <option value="June 2026">June 2026</option>
-                      <option value="July 2026">July 2026</option>
+                      {availableMonths.map(month => (
+                        <option key={month} value={month}>{month}</option>
+                      ))}
                     </select>
                   </div>
 

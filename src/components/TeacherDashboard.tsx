@@ -1799,6 +1799,31 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                   <span>{loading ? 'প্রক্রিয়াধীন...' : 'মেটেরিয়াল শেয়ার করুন'}</span>
                 </button>
               </form>
+
+              {materials.length > 0 && (
+                <div className="mt-10">
+                  <h4 className="font-bold text-gray-800 mb-4 text-base border-b border-gray-100 pb-2">পূর্বে আপলোডকৃত মেটেরিয়াল সমূহ</h4>
+                  <div className="space-y-3">
+                    {materials.map(material => (
+                      <div key={material.id} className="p-4 rounded-xl border border-gray-100 bg-gray-50 flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-purple-100 text-purple-800">
+                            {material.batchName}
+                          </span>
+                          <span className="text-xs text-gray-500 font-medium">
+                            {new Date(material.createdAt).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short' })}
+                          </span>
+                        </div>
+                        <h5 className="font-bold text-gray-800 mt-1">{material.title}</h5>
+                        {material.description && <p className="text-sm text-gray-600">{material.description}</p>}
+                        <a href={material.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 font-bold hover:underline mt-1 w-max">
+                          ফাইলটি দেখুন ↗
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1862,6 +1887,27 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                   <span>{loading ? 'প্রচার চলছে...' : 'নোটিশ প্রচার করুন'}</span>
                 </button>
               </form>
+
+              {notices.length > 0 && (
+                <div className="mt-10">
+                  <h4 className="font-bold text-gray-800 mb-4 text-base border-b border-gray-100 pb-2">পূর্বে প্রকাশিত নোটিশ সমূহ</h4>
+                  <div className="space-y-3">
+                    {notices.map(notice => (
+                      <div key={notice.id} className="p-4 rounded-xl border border-gray-100 bg-gray-50 flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-orange-100 text-orange-800">
+                            {notice.batchName}
+                          </span>
+                          <span className="text-xs text-gray-500 font-medium">
+                            {new Date(notice.createdAt).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short' })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{notice.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

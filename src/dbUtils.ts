@@ -494,11 +494,20 @@ export async function enrollStudentInBatch(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const inviteClean = inviteCode.trim().toUpperCase();
-    const batches = getLocalCollection<Batch>('batches');
-    const batchObj = batches.find(b => b.code.toUpperCase() === inviteClean && !b.deleted);
-
-    if (!batchObj) {
+    
+    // Query Firestore directly for the batch by code
+    const batchesRef = collection(db, 'batches');
+    const q = query(batchesRef, where('code', '==', inviteClean));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
       return { success: false, message: "Invalid Invite Code! Please check with your teacher." };
+    }
+    
+    const batchObj = querySnapshot.docs[0].data() as Batch;
+    
+    if (batchObj.deleted) {
+      return { success: false, message: "This batch has been deleted." };
     }
 
     const enrollmentId = `${batchObj.id}_${studentId}`;
@@ -525,6 +534,12 @@ export async function enrollStudentInBatch(
     enrollments.push(newEnrollment);
     setLocalCollection('enrollments', enrollments);
 
+    await runOnlineWrite(async () => {
+      const enrollmentRef = doc(db, 'enrollments', enrollmentId);
+      await setDoc(enrollmentRef, newEnrollment);
+    });
+    
+    // Post notice after successful enrollment write
     await postNotice(
       batchObj.id,
       batchObj.name,
@@ -533,11 +548,6 @@ export async function enrollStudentInBatch(
       'general',
       `👤 Student "${studentUser.name}" has joined the batch!`
     );
-
-    await runOnlineWrite(async () => {
-      const enrollmentRef = doc(db, 'enrollments', enrollmentId);
-      await setDoc(enrollmentRef, newEnrollment);
-    });
 
     return { success: true, message: `Successfully enrolled in "${batchObj.name}"!` };
   } catch (error: any) {

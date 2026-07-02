@@ -79,19 +79,25 @@ service cloud.firestore {
     // 6. Attendance collection
     match /attendance/{attendanceId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow create: if isSignedIn() && isBatchTeacher(request.resource.data.batchId);
+      allow update: if isSignedIn() && isBatchTeacher(resource.data.batchId);
+      allow delete: if isSignedIn() && isBatchTeacher(resource.data.batchId);
     }
 
     // 7. Exams collection
     match /exams/{examId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow create: if isSignedIn() && isBatchTeacher(request.resource.data.batchId);
+      allow update: if isSignedIn() && isBatchTeacher(resource.data.batchId);
+      allow delete: if isSignedIn() && isBatchTeacher(resource.data.batchId);
     }
 
     // 8. Exam Results collection
     match /examResults/{resultId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow create: if isSignedIn() && isBatchTeacher(request.resource.data.batchId);
+      allow update: if isSignedIn() && isBatchTeacher(resource.data.batchId);
+      allow delete: if isSignedIn() && isBatchTeacher(resource.data.batchId);
     }
   }
 }

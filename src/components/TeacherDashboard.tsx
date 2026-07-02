@@ -99,7 +99,7 @@ const getBatchAccentColors = (index: number) => {
 const generateMonthsList = () => {
   const months = [];
   const currentDate = new Date();
-  for (let i = -3; i <= 3; i++) {
+  for (let i = -6; i <= 6; i++) {
     const d = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
     const monthName = d.toLocaleString('en-US', { month: 'long' });
     const year = d.getFullYear();
@@ -1912,9 +1912,14 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
                     {notices.map(notice => (
                       <div key={notice.id} className="p-4 rounded-xl border border-gray-100 bg-gray-50 flex flex-col gap-2">
                         <div className="flex justify-between items-start">
-                          <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-orange-100 text-orange-800">
-                            {notice.batchName}
-                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider bg-slate-200 text-slate-700">
+                              {notice.type === 'exam_alert' ? 'পরীক্ষা' : notice.type === 'schedule_change' ? 'রুটিন' : 'সাধারণ'}
+                            </span>
+                            <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-orange-100 text-orange-800">
+                              {notice.batchName}
+                            </span>
+                          </div>
                           <span className="text-xs text-gray-500 font-medium">
                             {new Date(notice.createdAt).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short' })}
                           </span>

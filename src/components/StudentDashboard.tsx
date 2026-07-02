@@ -37,7 +37,7 @@ const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'F
 const generateMonthsList = () => {
   const months = [];
   const currentDate = new Date();
-  for (let i = -3; i <= 3; i++) {
+  for (let i = -6; i <= 6; i++) {
     const d = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
     const monthName = d.toLocaleString('en-US', { month: 'long' });
     const year = d.getFullYear();

@@ -495,16 +495,31 @@ export async function enrollStudentInBatch(
   try {
     const inviteClean = inviteCode.trim().toUpperCase();
     
-    // Query Firestore directly for the batch by code
-    const batchesRef = collection(db, 'batches');
-    const q = query(batchesRef, where('code', '==', inviteClean));
-    const querySnapshot = await getDocs(q);
-    
-    if (querySnapshot.empty) {
-      return { success: false, message: "Invalid Invite Code! Please check with your teacher." };
+    let batchObj: Batch | undefined;
+
+    if (!isOfflineMode) {
+      try {
+        // Query Firestore directly for the batch by code
+        const batchesRef = collection(db, 'batches');
+        const q = query(batchesRef, where('code', '==', inviteClean));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          batchObj = querySnapshot.docs[0].data() as Batch;
+        }
+      } catch (err) {
+        console.warn("Firestore query failed for invite code, falling back to local storage:", err);
+      }
+    }
+
+    if (!batchObj) {
+      const localBatches = getLocalCollection<Batch>('batches');
+      batchObj = localBatches.find(b => b.code.toUpperCase() === inviteClean && !b.deleted);
     }
     
-    const batchObj = querySnapshot.docs[0].data() as Batch;
+    if (!batchObj) {
+      return { success: false, message: "Invalid Invite Code! Please check with your teacher." };
+    }
     
     if (batchObj.deleted) {
       return { success: false, message: "This batch has been deleted." };

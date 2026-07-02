@@ -2774,6 +2774,7 @@ export default function TeacherDashboard({ user }: TeacherDashboardProps) {
         {activeTab === 'exams' && (
           <TeacherExamManager
             teacherId={user.uid}
+            teacherName={user.name}
             batches={batches}
             enrollments={enrollments}
           />

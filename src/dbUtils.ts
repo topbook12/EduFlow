@@ -1641,7 +1641,7 @@ export async function seedAttendanceIfEmpty(batchId: string, enrollments: Enroll
 /**
  * Create a new exam
  */
-export async function createExam(examData: Omit<Exam, 'id' | 'createdAt'>, teacherId: string): Promise<string> {
+export async function createExam(examData: Omit<Exam, 'id' | 'createdAt'>, teacherId: string, teacherName: string): Promise<string> {
   const examId = 'exam-' + Math.random().toString(36).substring(2);
   const newExam: Exam = {
     ...examData,
@@ -1659,7 +1659,7 @@ export async function createExam(examData: Omit<Exam, 'id' | 'createdAt'>, teach
     examData.batchId,
     examData.batchName,
     teacherId,
-    "EduFlow Exams",
+    teacherName,
     'exam_alert',
     `📝 নতুন পরীক্ষা যুক্ত করা হয়েছে: "${examData.title}" (${examData.subject})। তারিখ: ${examData.examDate}। মোট নম্বর: ${examData.totalMarks}।`
   );

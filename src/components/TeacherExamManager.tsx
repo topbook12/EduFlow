@@ -6,11 +6,12 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as ChartToolt
 
 interface TeacherExamManagerProps {
   teacherId: string;
+  teacherName: string;
   batches: Batch[];
   enrollments: Enrollment[];
 }
 
-export const TeacherExamManager: React.FC<TeacherExamManagerProps> = ({ teacherId, batches, enrollments }) => {
+export const TeacherExamManager: React.FC<TeacherExamManagerProps> = ({ teacherId, teacherName, batches, enrollments }) => {
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
   const [exams, setExams] = useState<Exam[]>([]);
   const [examResults, setExamResults] = useState<ExamResult[]>([]);
@@ -73,7 +74,7 @@ export const TeacherExamManager: React.FC<TeacherExamManagerProps> = ({ teacherI
       title: newTitle,
       totalMarks: newMarks,
       examDate: newDate
-    }, teacherId);
+    }, teacherId, teacherName);
 
     setShowCreateModal(false);
     setNewTitle('');
